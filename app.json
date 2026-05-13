@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "scheme": "goldride",
     "splash": {
-      "image": "./assets/gold_logo.png",
+      "image": "./assets/icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
