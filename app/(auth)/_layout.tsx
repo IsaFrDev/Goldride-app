@@ -13,6 +13,7 @@ export default function AuthLayout() {
       <Stack.Screen name="otp" />
       <Stack.Screen name="role-select" />
       <Stack.Screen name="passenger-register" />
+      <Stack.Screen name="driver-register" />
     </Stack>
   );
 }

@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "scheme": "goldride",
     "splash": {
-      "image": "./assets/icon.png",
+      "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
@@ -19,7 +19,7 @@
       "bundleIdentifier": "uz.goldride.app",
       "buildNumber": "1.0.0",
       "config": {
-        "googleMapsApiKey": ""
+        "googleMapsApiKey": "AIzaSyDummyKey_For_Build_Stability"
       },
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Goldride sizga yaqin haydovchilarni ko'rsatish va buyurtma berishingiz uchun joylashuvingizdan foydalanadi.",
@@ -38,7 +38,7 @@
         "backgroundColor": "#000000"
       },
       "package": "uz.goldride.app",
-      "versionCode": 1,
+      "versionCode": 3,
       "permissions": [
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
@@ -48,7 +48,7 @@
       ],
       "config": {
         "googleMaps": {
-          "apiKey": ""
+          "apiKey": "AIzaSyDummyKey_For_Build_Stability"
         }
       }
     },

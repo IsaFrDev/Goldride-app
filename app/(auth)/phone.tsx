@@ -192,13 +192,19 @@ export default function PhoneScreen() {
                 style={[styles.sendBtn, loading && styles.sendBtnDisabled]}
                 onPress={async () => {
                     if (!chatId) return;
-                    const { login, referralCode } = useAuthStore.getState();
+                    const { login, referralCode, onboardingRole, setOnboardingRole } = useAuthStore.getState();
                     setLoading(true);
                     try {
                         const response = await authAPI.verifyOTP(chatId, '0000', 'telegram', undefined, referralCode || undefined);
                         const { access, refresh, user } = response.data;
                         login(access, refresh, user);
-                        router.replace(user.role === 'driver' ? '/(driver)/home' : '/(passenger)/home');
+                        
+                        if (onboardingRole === 'driver') {
+                           router.replace({ pathname: '/(auth)/role-select', params: { force_role: 'driver' } });
+                           setOnboardingRole(null);
+                        } else {
+                           router.replace(user.role === 'driver' ? '/(driver)/home' : '/(passenger)/home');
+                        }
                     } catch (e: any) {
                         Alert.alert("Xato", "Chat ID noto'g'ri yoki botdan ro'yxatdan o'tilmagan");
                     } finally { setLoading(false); }

@@ -1,13 +1,24 @@
+import { useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { t } from '../../services/i18n';
 import { useAuthStore } from '../../stores/authStore';
 import { authAPI } from '../../services/api';
+import { useLocalSearchParams } from 'expo-router';
 
 export default function RoleSelectScreen() {
   const router = useRouter();
   const { user, setUser } = useAuthStore();
+  const { force_role } = useLocalSearchParams<{ force_role?: string }>();
+
+  useEffect(() => {
+    if (force_role === 'driver') {
+      selectRole('driver');
+    } else if (force_role === 'passenger') {
+      selectRole('passenger');
+    }
+  }, [force_role]);
 
   const selectRole = async (role: 'passenger' | 'driver') => {
     try {

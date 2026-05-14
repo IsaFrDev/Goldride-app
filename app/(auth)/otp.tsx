@@ -14,7 +14,7 @@ export default function OTPScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { identifier, phone, type } = useLocalSearchParams<{ identifier: string, phone?: string, type: 'phone' | 'email' }>();
-  const { login, referralCode } = useAuthStore();
+  const { login, referralCode, onboardingRole, setOnboardingRole } = useAuthStore();
 
   const [otp, setOtp] = useState(['', '', '', '']);
   const [loading, setLoading] = useState(false);
@@ -77,8 +77,12 @@ export default function OTPScreen() {
 
       login(access, refresh, user);
 
-      if (is_new_user || !user.first_name) {
-        router.replace('/(auth)/role-select');
+      if (is_new_user || !user.first_name || onboardingRole === 'driver') {
+        router.replace({
+            pathname: '/(auth)/role-select',
+            params: { force_role: onboardingRole || undefined }
+        });
+        setOnboardingRole(null); // Clear after use
       } else if (user.role === 'driver' && user.has_driver_profile) {
         router.replace('/(driver)/home');
       } else if (user.role === 'passenger') {

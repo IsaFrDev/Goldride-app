@@ -129,6 +129,9 @@ export default function PassengerHomeScreen() {
   const [isScheduled, setIsScheduled] = useState(false);
   const [scheduledTime, setScheduledTime] = useState<Date | null>(null);
 
+  // Mandatory Agreement Modal (for existing users)
+  const [showAgreementModal, setShowAgreementModal] = useState(false);
+
   // 1. Permissions & Initial Location
   useEffect(() => {
     (async () => {
@@ -177,8 +180,11 @@ export default function PassengerHomeScreen() {
         console.log('Passenger location fetch failed:', error);
       }
       
-      // 0. Check for Active Ride on Mount (Persistence)
+      // 0. Check for Active Ride and Agreement status on Mount
       if (isAuthenticated) {
+        if (user && !user.has_agreed_to_terms) {
+            setShowAgreementModal(true);
+        }
         try {
           const resp = await ridesAPI.getActiveRide();
           if (resp.data) {
@@ -232,6 +238,47 @@ export default function PassengerHomeScreen() {
       }
     })();
   }, [isAuthenticated]);
+
+  const handleAgreeToTerms = async () => {
+    try {
+      await authAPI.updateProfile({ has_agreed_to_terms: true });
+      setUser({ ...user!, has_agreed_to_terms: true });
+      setShowAgreementModal(false);
+    } catch (err) {
+      console.error('Failed to agree to terms:', err);
+      Alert.alert('Xatolik', 'Internet bilan muammo yuz berdi');
+    }
+  };
+
+  const renderAgreementModal = () => (
+    <Modal visible={showAgreementModal} animationType="slide" transparent>
+      <View style={styles.modalOverlay}>
+        <View style={styles.agreementModalContent}>
+          <View style={styles.agreementHeader}>
+             <Ionicons name="document-text" size={32} color="#FFB800" />
+             <Text style={styles.agreementTitle}>Ommaviy Oferta</Text>
+          </View>
+          <Text style={styles.agreementIntro}>
+            Platformamizdan xavfsiz foydalanish uchun shartlarimiz bilan tanishib chiqishingizni so'raymiz.
+          </Text>
+          <ScrollView style={styles.agreementScrollBox}>
+            <Text style={styles.agreementBodyText}>
+              1. Umumiy qoidalar...{"\n"}
+              Goldride platformasi haydovchi va yo'lovchi o'rtasida vositachilik xizmatini ko'rsatadi.{"\n\n"}
+              2. Yo'lovchi majburiyatlari:{"\n"}
+              - Haydovchi va avtomobilga nisbatan hurmat bilan munosabatda bo'lish.{"\n"}
+              - Safar yakunida to'lovni o'z vaqtida amalga oshirish.{"\n\n"}
+              3. Maxfiylik:{"\n"}
+              Sizning ma'lumotlaringiz uchinchi shaxslarga berilmaydi.
+            </Text>
+          </ScrollView>
+          <TouchableOpacity style={styles.agreeBtn} onPress={handleAgreeToTerms}>
+             <Text style={styles.agreeBtnText}>Roziman va Davom etaman</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
 
   // 2. Nearby Drivers Polling
   useEffect(() => {
@@ -645,6 +692,7 @@ export default function PassengerHomeScreen() {
 
   return (
     <View style={styles.container}>
+      {renderAgreementModal()}
       <MapView
         ref={mapRef}
         style={styles.map}
@@ -765,7 +813,7 @@ export default function PassengerHomeScreen() {
         <View style={[styles.header, { paddingTop: Math.max(insets.top, 50) }]}>
             <TouchableOpacity style={styles.profileBtn} onPress={() => router.push('/(passenger)/profile')}>
                 <Ionicons name="person-circle" size={36} color="#FFB800" />
-                <Text style={styles.profileName}>{isAuthenticated ? user?.first_name : 'Mehmon'}</Text>
+                <Text style={styles.profileName}>{isAuthenticated ? (user?.first_name || 'Foydalanuvchi') : 'Mehmon'}</Text>
             </TouchableOpacity>
         </View>
       )}
@@ -1498,4 +1546,58 @@ const styles = StyleSheet.create({
   bonusRadioBtnActive: { borderColor: '#FFB800', backgroundColor: '#2D260D' },
   bonusRadioLabel: { fontSize: 14, fontWeight: '700', color: '#94A3B8' },
   bonusRadioValue: { fontSize: 14, fontWeight: '800', color: '#FFF' },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  agreementModalContent: {
+    backgroundColor: '#121212',
+    borderRadius: 24,
+    padding: 24,
+    maxHeight: '80%',
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  agreementHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 15,
+  },
+  agreementTitle: {
+    color: '#FFF',
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  agreementIntro: {
+    color: '#94A3B8',
+    fontSize: 14,
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  agreementScrollBox: {
+    backgroundColor: '#000',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 24,
+  },
+  agreementBodyText: {
+    color: '#CCC',
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  agreeBtn: {
+    backgroundColor: '#FFB800',
+    height: 56,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  agreeBtnText: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: '700',
+  },
 });

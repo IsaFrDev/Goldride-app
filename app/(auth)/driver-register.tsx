@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  KeyboardAvoidingView, Platform, Alert, ScrollView,
+  KeyboardAvoidingView, Platform, Alert, ScrollView, Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,387 +28,354 @@ export default function DriverRegisterScreen() {
   const insets = useSafeAreaInsets();
   const { setUser } = useAuthStore();
   const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState(1); // 1 to 6
 
-  // Personal info
+  // Step 1: Agreement
+  const [hasAgreed, setHasAgreed] = useState(false);
+
+  // Step 2: Personal info & Passport
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [passport, setPassport] = useState('');
-  const [license, setLicense] = useState('');
+  const [passportPhotoFront, setPassportPhotoFront] = useState<string | null>(null);
+  const [passportPhotoBack, setPassportPhotoBack] = useState<string | null>(null);
 
-  // Vehicle info
+  // Step 3: License & Face ID
+  const [license, setLicense] = useState('');
+  const [licensePhotoFront, setLicensePhotoFront] = useState<string | null>(null);
+  const [licensePhotoBack, setLicensePhotoBack] = useState<string | null>(null);
+  const [faceIdPhoto, setFaceIdPhoto] = useState<string | null>(null);
+
+  // Step 4: Vehicle & Tech Passport
   const [make, setMake] = useState('');
   const [model, setModel] = useState('');
   const [year, setYear] = useState('');
-  const [color, setColor] = useState('white');
   const [plate, setPlate] = useState('');
-  const [carPhoto, setCarPhoto] = useState<string | null>(null);
+  const [techPassportFront, setTechPassportFront] = useState<string | null>(null);
+  const [techPassportBack, setTechPassportBack] = useState<string | null>(null);
 
-  // AI Classification logic (Frontend version)
-  const getVehicleClass = () => {
-    if (!make || !model) return null;
-    const m = make.toLowerCase();
-    const mod = model.toLowerCase();
-    
-    const bizBrands = ['mercedes', 'bmw', 'audi', 'lexus', 'porsche', 'genesis'];
-    const bizMods = ['s-class', '7-series', 'a8', 'ls', 'gls', 'x7'];
-    
-    if (bizBrands.some(b => m.includes(b)) && bizMods.some(bm => mod.includes(bm))) {
-        return { key: 'business', label: 'Biznes', color: '#FFB800' };
-    }
-    
-    const comBrands = ['toyota', 'kia', 'hyundai', 'chevrolet'];
-    const comMods = ['camry', 'k5', 'optima', 'malibu', 'equinox', 'sonata', 'tucson', 'sportage'];
-    
-    if (comBrands.some(b => m.includes(b)) && comMods.some(bm => mod.includes(bm))) {
-        return { key: 'comfort', label: 'Komfort', color: '#4CAF50' };
-    }
-    
-    // Default or year based
-    if (Number(year) >= 2022 && comBrands.some(b => m.includes(b))) {
-        return { key: 'comfort', label: 'Komfort', color: '#4CAF50' };
-    }
+  // Step 5: Vehicle Photos
+  const [color, setColor] = useState('white');
+  const [photoFront, setPhotoFront] = useState<string | null>(null);
+  const [photoBack, setPhotoBack] = useState<string | null>(null);
+  const [photoLeft, setPhotoLeft] = useState<string | null>(null);
+  const [photoRight, setPhotoRight] = useState<string | null>(null);
+  const [interior1, setInterior1] = useState<string | null>(null);
+  const [interior2, setInterior2] = useState<string | null>(null);
 
-    return { key: 'economy', label: 'Ekonom', color: '#94A3B8' };
-  };
+  // Step 6: Taxi License
+  const [taxiLicense, setTaxiLicense] = useState<string | null>(null);
 
-  const vClass = getVehicleClass();
-
-  const pickCarPhoto = async () => {
+  const pickPhoto = async (setter: (uri: string) => void, aspect: [number, number] = [4, 3]) => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
-      aspect: [16, 9],
-      quality: 0.8,
+      aspect,
+      quality: 0.7,
     });
-
     if (!result.canceled) {
-      setCarPhoto(result.assets[0].uri);
+      setter(result.assets[0].uri);
     }
   };
 
-  const handleRegister = async () => {
-    if (!firstName.trim() || !lastName.trim()) {
-      Alert.alert(t('common.error'), "Ism va familiyani kiriting");
-      return;
-    }
-    if (!license.trim()) {
-      Alert.alert(t('common.error'), "Guvohnoma raqamini kiriting");
-      return;
-    }
-    if (!passport.trim()) {
-      Alert.alert(t('common.error'), "Pasport seriyasi va raqamini kiriting");
-      return;
-    }
-    if (!make.trim() || !model.trim() || !year.trim() || !plate.trim()) {
-      Alert.alert(t('common.error'), "Mashina ma'lumotlarini to'liq kiriting");
-      return;
-    }
-    if (!carPhoto) {
-      Alert.alert(t('common.error'), "Mashina rasmini yuklash majburiy (AI tekshiruvi uchun)");
-      return;
-    }
-
-    // Plate number regex validation
-    const plateRegex = /^(?:\d{2}[A-Z]\d{3}[A-Z]{2}|\d{2}\d{3}[A-Z]{3})$/;
-    if (!plateRegex.test(plate.trim().toUpperCase())) {
-      Alert.alert(t('common.error'), "Davlat raqami noto'g'ri formatda (Masalan: 01A123AA yoki 01123AAA)");
-      return;
-    }
-
-    // Make and Model length validation
-    if (make.trim().length < 2 || model.trim().length < 2) {
-      Alert.alert(t('common.error'), "Marka va model nomini to'liq kiriting");
-      return;
-    }
-    
-    // Prevent random gibberish for the model
-    const modelRegex = /^[A-Za-z0-9\s-]+$/;
-    if (!modelRegex.test(model.trim())) {
-        Alert.alert(t('common.error'), "Model nomida faqat harf, raqam va chiziqcha qatnashishi mumkin");
+  const handleNext = () => {
+    if (step === 1 && !hasAgreed) {
+        Alert.alert("Xato", "Davom etish uchun shartnoma bilan tanishib, rozilik berishingiz kerak");
         return;
     }
-    
-    // Basic check to prevent keyboard mashing like "asdasd"
-    if (/(.)\1{3,}/.test(model.trim())) {
-         Alert.alert(t('common.error'), "Noto'g'ri model nomi kiritildi");
-         return;
+    if (step === 2) {
+        if (!firstName.trim() || !lastName.trim() || !passport.trim() || !passportPhotoFront || !passportPhotoBack) {
+            Alert.alert("Xato", "Hamma maydonlarni to'ldiring va pasport rasmlarini yuklang");
+            return;
+        }
     }
+    if (step === 3) {
+        if (!license.trim() || !licensePhotoFront || !licensePhotoBack || !faceIdPhoto) {
+            Alert.alert("Xato", "Guvohnoma rasmlari va Face ID yuklanishi shart");
+            return;
+        }
+    }
+    if (step === 4) {
+        if (!make || !model || !year || !plate || !techPassportFront || !techPassportBack) {
+            Alert.alert("Xato", "Mashina ma'lumotlari va texpasport rasmlarini to'liq kiriting");
+            return;
+        }
+        const cleanPlate = plate.trim().toUpperCase().replace(/\s/g, '');
+        const plateRegex = /^(?:\d{2}[A-Z]\d{3}[A-Z]{2}|\d{2}\d{3}[A-Z]{3})$/;
+        if (!plateRegex.test(cleanPlate)) {
+            Alert.alert("Xato", "Davlat raqami formati noto'g'ri");
+            return;
+        }
+    }
+    if (step === 5) {
+        if (!photoFront || !photoBack || !photoLeft || !photoRight || !interior1 || !interior2) {
+            Alert.alert("Xato", "Mashinaning barcha 4 tomoni va salon rasmlari yuklanishi shart");
+            return;
+        }
+    }
+    
+    if (step < 6) setStep(step + 1);
+    else handleRegister();
+  };
 
+  const handleRegister = async () => {
     setLoading(true);
     try {
-      // Simulate Smart Image Analysis
-      await new Promise(resolve => setTimeout(resolve, 2000)); // AI thinking...
+      const cleanPlate = plate.trim().toUpperCase().replace(/\s/g, '');
       
-      // Update user info first
+      // 1. Update basic info
       await authAPI.register({
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         role: 'driver',
+        has_agreed_to_terms: true
       });
 
-      // Register driver profile
+      // 2. Prepare Form Data
       const formData = new FormData();
-      formData.append('license_number', license.trim());
+      formData.append('license_number', license.trim().toUpperCase());
       formData.append('passport_number', passport.trim().toUpperCase());
       formData.append('make', make.trim());
       formData.append('vehicle_model', model.trim());
       formData.append('year', year.trim());
       formData.append('color', color);
-      formData.append('plate_number', plate.trim().toUpperCase());
+      formData.append('plate_number', cleanPlate);
       formData.append('vehicle_type', 'sedan');
 
-      if (carPhoto) {
-        const uriParts = carPhoto.split('.');
-        const fileType = uriParts[uriParts.length - 1];
-        formData.append('vehicle_photo', {
-          uri: carPhoto,
-          name: `vehicle.${fileType}`,
-          type: `image/${fileType}`,
-        } as any);
-      }
+      // Helper to append files
+      const appendFile = (key: string, uri: string | null, fileName: string) => {
+        if (uri) {
+          const type = uri.split('.').pop();
+          formData.append(key, {
+            uri,
+            name: `${fileName}.${type}`,
+            type: `image/${type === 'pdf' ? 'pdf' : 'jpeg'}`,
+          } as any);
+        }
+      };
+
+      appendFile('license_photo', licensePhotoFront, 'license_front');
+      appendFile('license_photo_back', licensePhotoBack, 'license_back');
+      appendFile('passport_photo_front', passportPhotoFront, 'passport_front');
+      appendFile('passport_photo_back', passportPhotoBack, 'passport_back');
+      appendFile('face_id_photo', faceIdPhoto, 'face_id');
+      appendFile('taxi_license_photo', taxiLicense, 'taxi_license');
+      
+      appendFile('photo', photoFront, 'car_front');
+      appendFile('photo_back', photoBack, 'car_back');
+      appendFile('photo_left', photoLeft, 'car_left');
+      appendFile('photo_right', photoRight, 'car_right');
+      appendFile('interior_photo_1', interior1, 'interior_1');
+      appendFile('interior_photo_2', interior2, 'interior_2');
+      appendFile('tech_passport_photo_front', techPassportFront, 'tech_front');
+      appendFile('tech_passport_photo_back', techPassportBack, 'tech_back');
 
       await authAPI.registerDriver(formData);
 
-      // Refresh user data
       const profileResp = await authAPI.getProfile();
       setUser(profileResp.data);
 
       Alert.alert(
         "Muvaffaqiyatli!",
-        "Haydovchi sifatida ro'yxatdan o'tganingiz va 20 000 so'm bonus olganingiz bilan tabriklaymiz! 🎁",
-        [{ text: "Rahmat!", onPress: () => router.replace('/(driver)/home') }]
+        "Hujjatlaringiz qabul qilindi. Admin tomonidan tekshiruvdan so'ng (24 soat ichida) faoliyati boshlashingiz mumkin.",
+        [{ text: "OK", onPress: () => router.replace('/(driver)/home') }]
       );
     } catch (error: any) {
-      const errorData = error.response?.data;
-      let errorMsg = t('common.error');
-      
-      if (errorData?.detail) {
-        errorMsg = errorData.detail;
-      } else if (typeof errorData === 'object') {
-        const firstField = Object.keys(errorData)[0];
-        if (firstField) {
-          const fieldError = errorData[firstField];
-          errorMsg = `${firstField}: ${Array.isArray(fieldError) ? fieldError[0] : fieldError}`;
-        }
-      }
-      
-      Alert.alert(t('common.error'), errorMsg);
+      console.error('Registration error:', error.response?.data || error);
+      Alert.alert("Xatolik", "Ro'yxatdan o'tishda xatolik yuz berdi. Iltimos barcha rasmlar yuklanganini va internetingizni tekshiring.");
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-    >
-      <View style={[styles.topBar, { paddingTop: Math.max(insets.top, 20) }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#FFB800" />
-        </TouchableOpacity>
-        <Text style={styles.topTitle}>{t('dreg.title')}</Text>
-        <View style={{ width: 44 }} />
-      </View>
-
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent} 
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* Personal Info Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="person-circle" size={24} color="#FFB800" />
-            <Text style={styles.sectionTitle}>{t('reg.name_title')}</Text>
-          </View>
-
-          <View style={styles.row}>
-            <View style={[styles.inputGroup, { flex: 1 }]}>
-              <Text style={styles.label}>{t('reg.first_name')}</Text>
-              <TextInput
-                style={styles.input}
-                value={firstName}
-                onChangeText={setFirstName}
-                placeholder="Ism"
-                placeholderTextColor="#CCC"
-              />
-            </View>
-            <View style={[styles.inputGroup, { flex: 1 }]}>
-              <Text style={styles.label}>{t('reg.last_name')}</Text>
-              <TextInput
-                style={styles.input}
-                value={lastName}
-                onChangeText={setLastName}
-                placeholder="Familiya"
-                placeholderTextColor="#CCC"
-              />
-            </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>{t('dreg.license')}</Text>
-            <TextInput
-              style={styles.input}
-              value={license}
-              onChangeText={setLicense}
-              placeholder="AB1234567"
-              placeholderTextColor="#CCC"
-              autoCapitalize="characters"
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>PASPORT SERIYASI VA RAQAMI</Text>
-            <TextInput
-              style={styles.input}
-              value={passport}
-              onChangeText={setPassport}
-              placeholder="AA1234567"
-              placeholderTextColor="#CCC"
-              autoCapitalize="characters"
-            />
-          </View>
-        </View>
-
-        {/* Vehicle Info Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="car-sport" size={24} color="#FFB800" />
-            <Text style={styles.sectionTitle}>{t('dreg.car_title')}</Text>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>{t('dreg.make')}</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.chipContainer}>
-                {CAR_MAKES.map((m) => (
-                  <TouchableOpacity
-                    key={m}
-                    style={[styles.chip, make === m && styles.chipActive]}
-                    onPress={() => setMake(m)}
-                  >
-                    <Text style={[styles.chipText, make === m && styles.chipTextActive]}>
-                      {m}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+  const renderStep = () => {
+    switch(step) {
+      case 1: // Agreement
+        return (
+          <View style={styles.stepContainer}>
+            <Text style={styles.stepTitle}>Ommaviy Oferta</Text>
+            <ScrollView style={styles.agreementScroll}>
+              <Text style={styles.agreementText}>
+                1. Umumiy qoidalar...{"\n"}
+                Goldride platformasi haydovchi va yo'lovchi o'rtasida vositachilik xizmatini ko'rsatadi.{"\n\n"}
+                2. Haydovchi majburiyatlari:{"\n"}
+                - Yo'l harakati qoidalariga amal qilish.{"\n"}
+                - Mijozlarga nisbatan xushmuomala bo'lish.{"\n"}
+                - Mashina toza va texnik soz holatda bo'lishi.{"\n\n"}
+                3. Taqiqlangan harakatlar:{"\n"}
+                - Mast holatda rul boshqarish.{"\n"}
+                - Platformadan tashqari hisob-kitob qilish.{"\n"}
+                - Shaxsiy ma'lumotlarni uchinchi shaxslarga berish.{"\n\n"}
+                4. Maxfiylik siyosati:{"\n"}
+                Sizning barcha hujjatlaringiz xavfsiz saqlanadi va faqat identifikatsiya uchun ishlatiladi.
+              </Text>
             </ScrollView>
-          </View>
-
-          <View style={styles.row}>
-            <View style={[styles.inputGroup, { flex: 2 }]}>
-              <Text style={styles.label}>{t('dreg.model')}</Text>
-              <TextInput
-                style={styles.input}
-                value={model}
-                onChangeText={setModel}
-                placeholder="Spark, Malibu..."
-                placeholderTextColor="#CCC"
-              />
-            </View>
-            <View style={[styles.inputGroup, { flex: 1 }]}>
-              <Text style={styles.label}>{t('dreg.year')}</Text>
-              <TextInput
-                style={styles.input}
-                value={year}
-                onChangeText={setYear}
-                placeholder="2024"
-                placeholderTextColor="#CCC"
-                keyboardType="number-pad"
-                maxLength={4}
-              />
-            </View>
-          </View>
-
-          {vClass && (
-            <View style={styles.classPreview}>
-              <View style={[styles.classBadge, { backgroundColor: vClass.color }]}>
-                <Ionicons name="sparkles" size={14} color={vClass.key === 'economy' ? '#FFF' : '#000'} />
-                <Text style={[styles.classBadgeText, { color: vClass.key === 'economy' ? '#FFF' : '#000' }]}>
-                  {vClass.label} Klass
-                </Text>
-              </View>
-              <Text style={styles.classHint}>Tizim avtomatik ravishda mashinangizni "{vClass.label}" toifasiga kiritdi.</Text>
-            </View>
-          )}
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>MASHINA RASMI</Text>
-            <TouchableOpacity style={styles.photoUpload} onPress={pickCarPhoto}>
-              {carPhoto ? (
-                <View style={styles.photoPreviewWrap}>
-                  <View style={styles.photoOverlay}>
-                    <Ionicons name="camera" size={24} color="#FFF" />
-                    <Text style={styles.photoOverlayText}>O'zgartirish</Text>
-                  </View>
-                  {/* Image component would rely on URI from local state */}
-                  <View style={{height: 160, backgroundColor: '#222', borderRadius: 12, justifyContent: 'center', alignItems: 'center'}}>
-                     <Ionicons name="image" size={48} color="#444" />
-                     <Text style={{color: '#666', fontSize: 12, marginTop: 10}}>Rasm yuklandi: {carPhoto.split('/').pop()}</Text>
-                  </View>
-                </View>
-              ) : (
-                <View style={styles.photoPlaceholder}>
-                  <Ionicons name="camera" size={32} color="#94A3B8" />
-                  <Text style={styles.photoPlaceholderText}>Mashina rasmini yuklang</Text>
-                </View>
-              )}
+            <TouchableOpacity 
+                style={styles.checkboxContainer} 
+                onPress={() => setHasAgreed(!hasAgreed)}
+            >
+                <Ionicons name={hasAgreed ? "checkbox" : "square-outline"} size={24} color="#FFB800" />
+                <Text style={styles.checkboxLabel}>Shartnoma shartlariga roziman</Text>
             </TouchableOpacity>
           </View>
+        );
+      case 2: // Personal Info & Passport
+        return (
+          <View style={styles.stepContainer}>
+            <Text style={styles.stepTitle}>Shaxsiy ma'lumotlar</Text>
+            <View style={styles.row}>
+                <TextInput style={[styles.input, { flex: 1 }]} value={firstName} onChangeText={setFirstName} placeholder="Ism" placeholderTextColor="#666" />
+                <TextInput style={[styles.input, { flex: 1 }]} value={lastName} onChangeText={setLastName} placeholder="Familiya" placeholderTextColor="#666" />
+            </View>
+            <TextInput style={styles.input} value={passport} onChangeText={setPassport} placeholder="Pasport seriya va raqami (AA1234567)" placeholderTextColor="#666" autoCapitalize="characters" />
+            
+            <Text style={styles.label}>Pasport rasmi (Oldi tomoni)</Text>
+            <TouchableOpacity style={styles.photoUpload} onPress={() => pickPhoto(setPassportPhotoFront)}>
+                {passportPhotoFront ? <Image source={{ uri: passportPhotoFront }} style={styles.preview} /> : <Ionicons name="camera" size={32} color="#666" />}
+            </TouchableOpacity>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>{t('dreg.color')}</Text>
-            <View style={styles.colorContainer}>
-              {CAR_COLORS.map((c) => (
-                <TouchableOpacity
-                  key={c.key}
-                  style={[
-                    styles.colorBtn,
-                    { backgroundColor: c.color },
-                    color === c.key && styles.colorBtnActive,
-                  ]}
-                  onPress={() => setColor(c.key)}
-                >
-                  {color === c.key && (
-                    <Ionicons
-                      name="checkmark"
-                      size={16}
-                      color={c.key === 'white' || c.key === 'yellow' ? '#333' : '#FFF'}
-                    />
-                  )}
+            <Text style={styles.label}>Pasport rasmi (Orqa tomoni)</Text>
+            <TouchableOpacity style={styles.photoUpload} onPress={() => pickPhoto(setPassportPhotoBack)}>
+                {passportPhotoBack ? <Image source={{ uri: passportPhotoBack }} style={styles.preview} /> : <Ionicons name="camera" size={32} color="#666" />}
+            </TouchableOpacity>
+          </View>
+        );
+      case 3: // License & Face ID
+        return (
+          <View style={styles.stepContainer}>
+            <Text style={styles.stepTitle}>Haydovchilik guvohnomasi</Text>
+            <TextInput style={styles.input} value={license} onChangeText={setLicense} placeholder="Guvohnoma raqami (AB1234567)" placeholderTextColor="#666" autoCapitalize="characters" />
+            
+            <View style={styles.row}>
+                <View style={{ flex: 1 }}>
+                    <Text style={styles.label}>Guvohnoma (Old)</Text>
+                    <TouchableOpacity style={[styles.photoUpload, { height: 100 }]} onPress={() => pickPhoto(setLicensePhotoFront)}>
+                        {licensePhotoFront ? <Image source={{ uri: licensePhotoFront }} style={styles.preview} /> : <Ionicons name="card" size={24} color="#666" />}
+                    </TouchableOpacity>
+                </View>
+                <View style={{ flex: 1 }}>
+                    <Text style={styles.label}>Guvohnoma (Orqa)</Text>
+                    <TouchableOpacity style={[styles.photoUpload, { height: 100 }]} onPress={() => pickPhoto(setLicensePhotoBack)}>
+                        {licensePhotoBack ? <Image source={{ uri: licensePhotoBack }} style={styles.preview} /> : <Ionicons name="card" size={24} color="#666" />}
+                    </TouchableOpacity>
+                </View>
+            </View>
+
+            <Text style={styles.stepTitle}>Face ID (Shaxsni tasdiqlash)</Text>
+            <Text style={styles.hint}>Yuzingiz aniq ko'ringan holda selfi tushing</Text>
+            <TouchableOpacity style={[styles.photoUpload, { height: 200 }]} onPress={() => pickPhoto(setFaceIdPhoto, [1, 1])}>
+                {faceIdPhoto ? <Image source={{ uri: faceIdPhoto }} style={styles.preview} /> : <Ionicons name="person" size={48} color="#666" />}
+            </TouchableOpacity>
+          </View>
+        );
+      case 4: // Vehicle & Tech Passport
+        return (
+          <View style={styles.stepContainer}>
+            <Text style={styles.stepTitle}>Mashina ma'lumotlari</Text>
+            <TextInput style={styles.input} value={make} onChangeText={setMake} placeholder="Markasi (Masalan: Chevrolet)" placeholderTextColor="#666" />
+            <TextInput style={styles.input} value={model} onChangeText={setModel} placeholder="Modeli (Masalan: Cobalt)" placeholderTextColor="#666" />
+            <View style={styles.row}>
+                <TextInput style={[styles.input, { flex: 1 }]} value={year} onChangeText={setYear} placeholder="Yili" keyboardType="numeric" placeholderTextColor="#666" />
+                <TextInput style={[styles.input, { flex: 1 }]} value={plate} onChangeText={setPlate} placeholder="Davlat raqami" placeholderTextColor="#666" autoCapitalize="characters" />
+            </View>
+
+            <Text style={styles.label}>Texpasport (Oldi)</Text>
+            <TouchableOpacity style={[styles.photoUpload, { height: 120 }]} onPress={() => pickPhoto(setTechPassportFront)}>
+                {techPassportFront ? <Image source={{ uri: techPassportFront }} style={styles.preview} /> : <Ionicons name="document-text" size={32} color="#666" />}
+            </TouchableOpacity>
+
+            <Text style={styles.label}>Texpasport (Orqa)</Text>
+            <TouchableOpacity style={[styles.photoUpload, { height: 120 }]} onPress={() => pickPhoto(setTechPassportBack)}>
+                {techPassportBack ? <Image source={{ uri: techPassportBack }} style={styles.preview} /> : <Ionicons name="document-text" size={32} color="#666" />}
+            </TouchableOpacity>
+          </View>
+        );
+      case 5: // Car Photos (4 sides + Interior)
+        return (
+          <View style={styles.stepContainer}>
+            <Text style={styles.stepTitle}>Mashina rasmlari</Text>
+            <View style={styles.grid}>
+                <View style={styles.gridItem}>
+                    <Text style={styles.label}>Oldi</Text>
+                    <TouchableOpacity style={styles.gridUpload} onPress={() => pickPhoto(setPhotoFront)}>
+                        {photoFront ? <Image source={{ uri: photoFront }} style={styles.preview} /> : <Ionicons name="camera" size={24} color="#666" />}
+                    </TouchableOpacity>
+                </View>
+                <View style={styles.gridItem}>
+                    <Text style={styles.label}>Orqa</Text>
+                    <TouchableOpacity style={styles.gridUpload} onPress={() => pickPhoto(setPhotoBack)}>
+                        {photoBack ? <Image source={{ uri: photoBack }} style={styles.preview} /> : <Ionicons name="camera" size={24} color="#666" />}
+                    </TouchableOpacity>
+                </View>
+                <View style={styles.gridItem}>
+                    <Text style={styles.label}>Chap</Text>
+                    <TouchableOpacity style={styles.gridUpload} onPress={() => pickPhoto(setPhotoLeft)}>
+                        {photoLeft ? <Image source={{ uri: photoLeft }} style={styles.preview} /> : <Ionicons name="camera" size={24} color="#666" />}
+                    </TouchableOpacity>
+                </View>
+                <View style={styles.gridItem}>
+                    <Text style={styles.label}>O'ng</Text>
+                    <TouchableOpacity style={styles.gridUpload} onPress={() => pickPhoto(setPhotoRight)}>
+                        {photoRight ? <Image source={{ uri: photoRight }} style={styles.preview} /> : <Ionicons name="camera" size={24} color="#666" />}
+                    </TouchableOpacity>
+                </View>
+            </View>
+
+            <Text style={styles.stepTitle}>Salon rasmlari</Text>
+            <View style={styles.row}>
+                <TouchableOpacity style={[styles.photoUpload, { flex: 1, height: 120 }]} onPress={() => pickPhoto(setInterior1)}>
+                    {interior1 ? <Image source={{ uri: interior1 }} style={styles.preview} /> : <Ionicons name="car" size={32} color="#666" />}
                 </TouchableOpacity>
-              ))}
+                <TouchableOpacity style={[styles.photoUpload, { flex: 1, height: 120 }]} onPress={() => pickPhoto(setInterior2)}>
+                    {interior2 ? <Image source={{ uri: interior2 }} style={styles.preview} /> : <Ionicons name="car" size={32} color="#666" />}
+                </TouchableOpacity>
             </View>
           </View>
+        );
+      case 6: // Taxi License & Finish
+        return (
+          <View style={styles.stepContainer}>
+            <Text style={styles.stepTitle}>Yakunlash</Text>
+            <Text style={styles.label}>TAXI litsenziyasi (Agar bo'lsa)</Text>
+            <TouchableOpacity style={[styles.photoUpload, { height: 150 }]} onPress={() => pickPhoto(setTaxiLicense)}>
+                {taxiLicense ? <Image source={{ uri: taxiLicense }} style={styles.preview} /> : <Ionicons name="ribbon" size={48} color="#666" />}
+            </TouchableOpacity>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>{t('dreg.plate')}</Text>
-            <TextInput
-              style={styles.input}
-              value={plate}
-              onChangeText={setPlate}
-              placeholder="01A123BC"
-              placeholderTextColor="#CCC"
-              autoCapitalize="characters"
-            />
+            <View style={styles.summaryBox}>
+                <Ionicons name="information-circle" size={24} color="#FFB800" />
+                <Text style={styles.summaryText}>
+                    Barcha ma'lumotlar kiritildi. "Tugatish" tugmasini bosganingizdan so'ng ma'lumotlar moderatorga yuboriladi.
+                </Text>
+            </View>
           </View>
-        </View>
+        );
+    }
+  };
+
+  return (
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) }]}>
+        <TouchableOpacity onPress={() => step > 1 ? setStep(step - 1) : router.back()}>
+          <Ionicons name="arrow-back" size={24} color="#FFB800" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Ro'yxatdan o'tish ({step}/6)</Text>
+        <View style={{ width: 24 }} />
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {renderStep()}
       </ScrollView>
 
-      <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-        <TouchableOpacity
-          style={[styles.registerBtn, loading && styles.registerBtnDisabled]}
-          onPress={handleRegister}
-          disabled={loading}
-          activeOpacity={0.8}
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+        <TouchableOpacity 
+            style={[styles.nextBtn, loading && styles.disabledBtn]} 
+            onPress={handleNext}
+            disabled={loading}
         >
-          <Text style={styles.registerBtnText}>
-            {loading ? t('common.loading') : t('dreg.submit')}
-          </Text>
-          {!loading && <Ionicons name="checkmark-circle" size={22} color="#000" />}
+            <Text style={styles.nextBtnText}>
+                {loading ? "Yuborilmoqda..." : step === 6 ? "Tugatish" : "Keyingisi"}
+            </Text>
+            {!loading && <Ionicons name="chevron-forward" size={20} color="#000" />}
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -418,214 +385,162 @@ export default function DriverRegisterScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: '#000',
   },
-  topBar: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingBottom: 16,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1A1A1A',
   },
-  backBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#1A1A1A',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  topTitle: {
+  headerTitle: {
+    color: '#FFF',
     fontSize: 18,
     fontWeight: '700',
-    color: '#FFFFFF',
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
-  section: {
-    backgroundColor: '#121212',
-    borderRadius: 20,
     padding: 20,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#333',
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  stepContainer: {
+    flex: 1,
+  },
+  stepTitle: {
+    color: '#FFF',
+    fontSize: 22,
+    fontWeight: '800',
     marginBottom: 20,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
+  agreementScroll: {
+    height: 300,
+    backgroundColor: '#111',
+    borderRadius: 12,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: '#333',
+    marginBottom: 10,
   },
-  row: {
+  agreementText: {
+    color: '#CCC',
+    fontSize: 14,
+    lineHeight: 22,
+  },
+  checkboxContainer: {
     flexDirection: 'row',
-    gap: 12,
+    alignItems: 'center',
+    marginTop: 20,
+    backgroundColor: '#1A1A1A',
+    padding: 15,
+    borderRadius: 12,
   },
-  inputGroup: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#94A3B8',
-    marginBottom: 6,
-    marginLeft: 4,
+  checkboxLabel: {
+    color: '#FFF',
+    fontSize: 16,
+    marginLeft: 10,
   },
   input: {
     backgroundColor: '#1A1A1A',
+    color: '#FFF',
     borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    padding: 15,
     fontSize: 16,
-    color: '#FFFFFF',
-    fontWeight: '500',
+    marginBottom: 15,
     borderWidth: 1,
     borderColor: '#333',
   },
-  chipContainer: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingVertical: 4,
-  },
-  chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#1A1A1A',
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  chipActive: {
-    backgroundColor: '#FFB800',
-    borderColor: '#FFB800',
-  },
-  chipText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#94A3B8',
-  },
-  chipTextActive: {
-    color: '#000000',
-  },
-  colorContainer: {
+  row: {
     flexDirection: 'row',
     gap: 10,
-    flexWrap: 'wrap',
+    marginBottom: 10,
   },
-  colorBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  label: {
+    color: '#999',
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 8,
+    marginTop: 5,
+    textTransform: 'uppercase',
+  },
+  photoUpload: {
+    backgroundColor: '#1A1A1A',
+    height: 150,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
+    marginBottom: 20,
+    borderWidth: 1,
     borderColor: '#333',
+    borderStyle: 'dashed',
+    overflow: 'hidden',
   },
-  colorBtnActive: {
-    borderColor: '#FFB800',
-    borderWidth: 3,
+  preview: {
+    width: '100%',
+    height: '100%',
   },
-  bottomBar: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
+  hint: {
+    color: '#666',
+    fontSize: 13,
+    marginBottom: 15,
   },
-  registerBtn: {
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 20,
+  },
+  gridItem: {
+    width: '48%',
+  },
+  gridUpload: {
+    backgroundColor: '#1A1A1A',
+    height: 100,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#333',
+    borderStyle: 'dashed',
+    overflow: 'hidden',
+  },
+  summaryBox: {
+    backgroundColor: '#1A1A1A',
+    padding: 20,
+    borderRadius: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 15,
+    borderWidth: 1,
+    borderColor: '#FFB80033',
+  },
+  summaryText: {
+    color: '#FFF',
+    fontSize: 14,
+    flex: 1,
+    lineHeight: 20,
+  },
+  footer: {
+    padding: 20,
+    backgroundColor: '#000',
+    borderTopWidth: 1,
+    borderTopColor: '#1A1A1A',
+  },
+  nextBtn: {
     backgroundColor: '#FFB800',
-    paddingVertical: 18,
+    height: 56,
     borderRadius: 16,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 20,
-    shadowColor: '#FFB800',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 8,
+    gap: 10,
   },
-  registerBtnDisabled: {
+  disabledBtn: {
     opacity: 0.6,
   },
-  registerBtnText: {
-    color: '#000000',
-    fontSize: 17,
-    fontWeight: '800',
-  },
-  classPreview: {
-    backgroundColor: '#1E293B',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 20,
-    borderLeftWidth: 4,
-    borderLeftColor: '#FFB800',
-  },
-  classBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginBottom: 6,
-  },
-  classBadgeText: {
-    fontSize: 12,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-  },
-  classHint: {
-    fontSize: 12,
-    color: '#94A3B8',
-    lineHeight: 18,
-  },
-  photoUpload: {
-    height: 160,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#333',
-    borderStyle: 'dashed',
-    backgroundColor: '#1A1A1A',
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  photoPlaceholder: {
-    alignItems: 'center',
-    gap: 8,
-  },
-  photoPlaceholderText: {
-    fontSize: 14,
-    color: '#94A3B8',
-    fontWeight: '500',
-  },
-  photoPreviewWrap: {
-    width: '100%',
-    height: '100%',
-  },
-  photoOverlay: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    zIndex: 2,
-  },
-  photoOverlayText: {
-    color: '#FFF',
-    fontSize: 10,
+  nextBtnText: {
+    color: '#000',
+    fontSize: 18,
     fontWeight: '700',
   },
 });

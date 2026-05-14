@@ -35,6 +35,8 @@ interface AuthState {
   loadStoredAuth: () => Promise<void>;
   referralCode: string | null;
   setReferralCode: (code: string) => void;
+  onboardingRole: 'passenger' | 'driver' | null;
+  setOnboardingRole: (role: 'passenger' | 'driver' | null) => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -46,8 +48,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   language: 'uz',
   isOnline: false,
   referralCode: null,
+  onboardingRole: null,
 
   setReferralCode: (code) => set({ referralCode: code }),
+  setOnboardingRole: (role) => set({ onboardingRole: role }),
 
   setTokens: (access, refresh) => {
     set({ accessToken: access, refreshToken: refresh });

@@ -17,10 +17,15 @@ export default function PassengerRegisterScreen() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [hasAgreed, setHasAgreed] = useState(false);
 
   const handleRegister = async () => {
     if (!firstName.trim()) {
       Alert.alert(t('common.error'), 'Ismingizni kiriting');
+      return;
+    }
+    if (!hasAgreed) {
+      Alert.alert(t('common.error'), "Davom etish uchun shartnoma bilan tanishib, rozilik berishingiz kerak");
       return;
     }
 
@@ -30,6 +35,7 @@ export default function PassengerRegisterScreen() {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         role: 'passenger',
+        has_agreed_to_terms: true
       });
       
       const profile = await authAPI.getProfile();
@@ -113,6 +119,25 @@ export default function PassengerRegisterScreen() {
               />
             </View>
           </View>
+        </View>
+
+        <View style={styles.agreementSection}>
+          <Text style={styles.agreementTitle}>Foydalanish shartlari</Text>
+          <ScrollView style={styles.agreementBox} nestedScrollEnabled>
+            <Text style={styles.agreementText}>
+              Goldride ilovasidan foydalanish orqali siz ommaviy oferta shartlariga rozilik bildirasiz.{"\n\n"}
+              1. Safar xavfsizligi: Haydovchi va yo'lovchi o'zaro hurmatda bo'lishi shart.{"\n"}
+              2. Hisob-kitob: To'lovlar naqd yoki hamyon orqali amalga oshiriladi.{"\n"}
+              3. Jarimalar: Safarni sababsiz bekor qilish jarimaga sabab bo'lishi mumkin.
+            </Text>
+          </ScrollView>
+          <TouchableOpacity 
+            style={styles.checkboxWrapper} 
+            onPress={() => setHasAgreed(!hasAgreed)}
+          >
+            <Ionicons name={hasAgreed ? "checkbox" : "square-outline"} size={22} color="#FFB800" />
+            <Text style={styles.checkboxText}>Shartlarga roziman</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
 
@@ -233,6 +258,42 @@ const styles = StyleSheet.create({
   },
   registerBtnDisabled: {
     opacity: 0.6,
+  },
+  agreementSection: {
+    marginTop: 20,
+    marginBottom: 40,
+  },
+  agreementTitle: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 10,
+  },
+  agreementBox: {
+    height: 120,
+    backgroundColor: '#111',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  agreementText: {
+    color: '#999',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  checkboxWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 15,
+    backgroundColor: '#1A1A1A',
+    padding: 12,
+    borderRadius: 10,
+  },
+  checkboxText: {
+    color: '#FFF',
+    fontSize: 14,
+    marginLeft: 10,
   },
 });
 

@@ -7,7 +7,7 @@ import { useAuthStore } from '../../stores/authStore';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, isAuthenticated, language, setLanguage, logout, setUser } = useAuthStore();
+  const { user, isAuthenticated, language, setLanguage, logout, setUser, setOnboardingRole } = useAuthStore();
   const [updating, setUpdating] = useState(false);
   const [tgUsername, setTgUsername] = useState(user?.telegram_username || '');
 
@@ -80,7 +80,10 @@ export default function ProfileScreen() {
 
           <TouchableOpacity 
             style={styles.driverPromoBtn} 
-            onPress={() => router.push('/(auth)/phone')}
+            onPress={() => {
+              setOnboardingRole('driver');
+              router.push('/(auth)/phone');
+            }}
           >
             <Ionicons name="car-sport" size={24} color="#FFF" />
             <View>
@@ -127,6 +130,26 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
           <Text style={styles.inputHint}>* To'ldirish va yechish so'rovlari uchun kerak</Text>
+        </View>
+      )}
+
+      {/* Become a Driver Button for existing passengers */}
+      {isAuthenticated && user?.role === 'passenger' && (
+        <View style={styles.section}>
+          <TouchableOpacity 
+            style={styles.driverPromoBtn} 
+            onPress={() => {
+              setOnboardingRole('driver');
+              router.push('/(auth)/role-select');
+            }}
+          >
+            <Ionicons name="car-sport" size={24} color="#FFB800" />
+            <View>
+              <Text style={styles.driverPromoTitle}>{t('profile.become_driver')}</Text>
+              <Text style={styles.driverPromoSub}>{t('profile.earn_with_us')}</Text>
+            </View>
+            <Ionicons name="arrow-forward" size={20} color="#FFB800" style={{ marginLeft: 'auto' }} />
+          </TouchableOpacity>
         </View>
       )}
 
