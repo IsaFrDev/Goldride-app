@@ -35,9 +35,10 @@ TaskManager.defineTask(LOCATION_TRACKING, async ({ data, error }: any) => {
         // Send to backend
         await authAPI.updateLocation(location.coords.latitude, location.coords.longitude);
       } catch (e: any) {
-        // If backend says we are offline (400), stop tracking to avoid spamming errors
-        if (e.response?.status === 400) {
-          console.log('Driver is offline on server, stopping background tracking');
+        // Stop tracking if offline, unauthorized, unapproved, or driver profile doesn't exist
+        const status = e.response?.status;
+        if (status === 400 || status === 401 || status === 403 || status === 404) {
+          console.log(`Driver is offline or unauthorized (status: ${status}) on server, stopping background tracking`);
           try {
             await Location.stopLocationUpdatesAsync(LOCATION_TRACKING);
           } catch (stopErr) {
