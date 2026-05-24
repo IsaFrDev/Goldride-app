@@ -396,7 +396,64 @@ export default function PassengerHomeScreen() {
     return () => interval && clearInterval(interval);
   }, [ride.rideRequestId, ride.status]);
 
-  // 4. animations
+  // 4. Map: sync nearby drivers → 3D car markers
+  useEffect(() => {
+    if (!mapRef.current) return;
+    if (uiStep === 'idle' && displayedDrivers.length > 0) {
+      const payload = displayedDrivers.map((d: any) => ({
+        id: d.id,
+        lat: d.current_lat,
+        lng: d.current_lng,
+        rotation: 0,
+        isActive: false,
+      })).filter((d: any) => d.lat && d.lng);
+      mapRef.current.updateDrivers(payload);
+    } else if (uiStep !== 'ride_active') {
+      mapRef.current.clearAllDrivers?.();
+    }
+  }, [displayedDrivers, uiStep]);
+
+  // 4b. Map: sync active driver location
+  useEffect(() => {
+    if (!mapRef.current) return;
+    if (uiStep === 'ride_active' && ride.driverLocation) {
+      mapRef.current.updateDrivers([{
+        id: 'active-driver',
+        lat: ride.driverLocation.lat,
+        lng: ride.driverLocation.lng,
+        rotation: 0,
+        isActive: true,
+      }]);
+    }
+  }, [ride.driverLocation, uiStep]);
+
+  // 4c. Map: user location dot
+  useEffect(() => {
+    if (!mapRef.current || !location) return;
+    mapRef.current.updateUserLocation(location.coords.latitude, location.coords.longitude);
+  }, [location]);
+
+  // 4d. Map: route polyline
+  useEffect(() => {
+    if (!mapRef.current) return;
+    if (routeCoords.length > 1) {
+      mapRef.current.setRoute(routeCoords);
+    } else {
+      mapRef.current.clearRoute?.();
+    }
+  }, [routeCoords]);
+
+  // 4e. Map: destination marker
+  useEffect(() => {
+    if (!mapRef.current) return;
+    if (ride.destination?.lat && (uiStep === 'estimate' || uiStep === 'ride_active')) {
+      mapRef.current.setDestination(ride.destination.lat, ride.destination.lng);
+    } else {
+      mapRef.current.clearDestination?.();
+    }
+  }, [ride.destination, uiStep]);
+
+  // 4f. animations
   useEffect(() => {
     Animated.spring(slideAnim, {
       toValue: showSearch ? 1 : 0,

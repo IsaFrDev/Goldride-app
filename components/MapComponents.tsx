@@ -28,11 +28,11 @@ if (Platform.OS === 'web') {
   Circle = () => <View />;
   MapCallout = ({ children }: any) => <View>{children}</View>;
 } else {
-  // For mobile, we now default to LeafletMap to avoid Google SDK crashes
-  // But we still need Marker etc. for compatibility
-  Marker = ({ children }: any) => <View>{children}</View>;
-  Polyline = () => <View />;
-  Circle = () => <View />;
+  // Mobile: LeafletMap handles all markers via injectJavaScript.
+  // These stubs exist only for JSX compatibility — actual rendering is in LeafletMap.tsx.
+  Marker   = () => null;
+  Polyline = () => null;
+  Circle   = () => null;
   MapCallout = ({ children }: any) => <View>{children}</View>;
 }
 

@@ -413,6 +413,41 @@ export default function DriverHomeScreen() {
     setDisplayedDrivers(balanceDrivers(nearbyDrivers, virtualDrivers));
   }, [nearbyDrivers, virtualDrivers]);
 
+  // Map: sync other drivers as 3D car markers
+  useEffect(() => {
+    if (!mapRef.current || activeRide) return;
+    if (isOnline && displayedDrivers.length > 0) {
+      const payload = displayedDrivers
+        .filter((d: any) => d.current_lat && d.current_lng)
+        .map((d: any) => ({
+          id: d.id,
+          lat: d.current_lat,
+          lng: d.current_lng,
+          rotation: 0,
+          isActive: false,
+        }));
+      mapRef.current.updateDrivers?.(payload);
+    } else {
+      mapRef.current.clearAllDrivers?.();
+    }
+  }, [displayedDrivers, isOnline, !!activeRide]);
+
+  // Map: own location dot
+  useEffect(() => {
+    if (!mapRef.current || !location) return;
+    mapRef.current.updateUserLocation?.(location.coords.latitude, location.coords.longitude);
+  }, [location]);
+
+  // Map: route polyline when active ride
+  useEffect(() => {
+    if (!mapRef.current) return;
+    if (routeCoords.length > 1) {
+      mapRef.current.setRoute?.(routeCoords);
+    } else {
+      mapRef.current.clearRoute?.();
+    }
+  }, [routeCoords]);
+
   const toggleOnline = async () => {
     try {
       const { status: fgStatus } = await Location.getForegroundPermissionsAsync();
