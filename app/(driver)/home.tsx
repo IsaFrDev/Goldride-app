@@ -854,14 +854,21 @@ export default function DriverHomeScreen() {
                     {p.dropped_off ? '✅ Tushirildi' : p.picked_up ? '🚗 Mashinada' : '📍 Kutmoqda'}
                   </Text>
                 </View>
-                {!p.dropped_off && (
+                {/* Pickup button: only when arrived. Dropoff button: only when started */}
+                {!p.dropped_off && activeRide.status === 'arrived' && !p.picked_up && (
                   <TouchableOpacity
-                    style={[styles.smallActionBtn, p.picked_up && { backgroundColor: '#E53935' }]}
-                    onPress={() => p.picked_up ? handleDropoff(p.id) : handlePickup(p.id)}
+                    style={styles.smallActionBtn}
+                    onPress={() => handlePickup(p.id)}
                   >
-                    <Text style={styles.smallActionBtnText}>
-                      {p.picked_up ? 'Tushirish' : 'Olib ketish'}
-                    </Text>
+                    <Text style={styles.smallActionBtnText}>Olib ketish</Text>
+                  </TouchableOpacity>
+                )}
+                {!p.dropped_off && p.picked_up && activeRide.status === 'started' && (
+                  <TouchableOpacity
+                    style={[styles.smallActionBtn, { backgroundColor: '#E53935' }]}
+                    onPress={() => handleDropoff(p.id)}
+                  >
+                    <Text style={styles.smallActionBtnText}>Tushirish</Text>
                   </TouchableOpacity>
                 )}
               </View>
