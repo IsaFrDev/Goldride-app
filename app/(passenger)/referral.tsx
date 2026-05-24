@@ -10,10 +10,17 @@ export default function ReferralScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
+  const referralLink = `https://goldride.uz/ref/${user?.referral_code}`;
+
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `🚕 Goldride ilovasidan foydalaning va 10 000 UZS bonus oling! 🎁\n\nRo'yxatdan o'tishda mening promokodimni kiriting: ${user?.referral_code}\n\nIlovani yuklab olish: https://goldride.uz`,
+        message:
+          `🚕 Goldride — Toshkentning eng qulay taksi!\n\n` +
+          `Do'stim taklifi bilan ro'yxatdan o'tsang 20 000 UZS bonus olasan! 🎁\n\n` +
+          `👉 ${referralLink}\n\n` +
+          `Yoki kod: ${user?.referral_code}`,
+        url: referralLink,
       });
     } catch (error) {
       console.log(error);
@@ -62,6 +69,10 @@ export default function ReferralScreen() {
             <Ionicons name="share-social" size={20} color="#000" />
             <Text style={styles.copyBtnText}>Ulashish</Text>
           </TouchableOpacity>
+        </View>
+        <View style={{ marginTop: 14, backgroundColor: '#0F172A', borderRadius: 12, padding: 12 }}>
+          <Text style={{ color: '#94A3B8', fontSize: 11, marginBottom: 4 }}>Havola:</Text>
+          <Text style={{ color: '#FFB800', fontSize: 13, fontWeight: '700' }} numberOfLines={1}>{referralLink}</Text>
         </View>
       </View>
 

@@ -114,13 +114,15 @@ export const authAPI = {
   sendOTP: (phone?: string, email?: string) => api.post('/auth/send-otp/', { phone, email }),
   verifyOTP: (identifier: string, otp: string, type: 'phone' | 'email' | 'telegram' = 'phone', phone?: string, referralCode?: string) => {
     const key = type === 'telegram' ? 'telegram_username' : type;
-    return api.post('/auth/verify-otp/', { 
-        [key]: identifier, 
-        otp, 
+    return api.post('/auth/verify-otp/', {
+        [key]: identifier,
+        otp,
         phone,
-        referral_code: referralCode 
+        referral_code: referralCode
     });
   },
+  verifyTelegramOTP: (phone: string, code: string, referralCode?: string) =>
+    api.post('/auth/verify-otp/', { phone, otp: code, tg_login: true, referral_code: referralCode }),
   loginDirect: (phone: string, referralCode?: string) => 
     api.post('/auth/login-direct/', { phone, referral_code: referralCode }),
   register: (data: any) => api.post('/auth/register/', data),

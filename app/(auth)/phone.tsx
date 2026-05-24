@@ -22,7 +22,8 @@ export default function PhoneScreen() {
   const [step, setStep] = useState<'phone' | 'email'>('phone');
   const [phone, setPhone] = useState('+998');
   const [email, setEmail] = useState('');
-  const [chatId, setChatId] = useState('');
+  const [tgPhone, setTgPhone] = useState('+998');
+  const [tgCode, setTgCode] = useState('');
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<TextInput>(null);
 
@@ -176,50 +177,72 @@ export default function PhoneScreen() {
               <View style={styles.telegramNotice}>
                 <Ionicons name="information-circle" size={24} color="#24A1DE" />
                 <Text style={styles.telegramNoticeText}>
-                  Telegramga kirib, botga /start buyrug'ini bosing, ro'yxatdan o'tasiz.
+                  1. Telefon raqamingizni kiriting{'\n'}
+                  2. Telegram botga o'ting va kontaktni yuboring{'\n'}
+                  3. Botdan kelgan 6 xonali kodni kiriting
                 </Text>
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.flag}>🇺🇿</Text>
+                <TextInput
+                  style={styles.input}
+                  value={tgPhone}
+                  onChangeText={(t) => setTgPhone(formatPhone(t))}
+                  keyboardType="phone-pad"
+                  placeholder="+998 00 000 00 00"
+                  placeholderTextColor="#666"
+                  maxLength={17}
+                />
               </View>
 
               <TouchableOpacity style={styles.tgBtn} onPress={handleTelegramLogin}>
                 <Ionicons name="paper-plane" size={24} color="#FFF" />
-                <Text style={styles.tgBtnText}>Telegram botga o'tish</Text>
+                <Text style={styles.tgBtnText}>Telegram botga o'tish →</Text>
               </TouchableOpacity>
 
               <View style={styles.inputContainer}>
                 <Ionicons name="keypad" size={20} color="#666" style={{ marginRight: 10 }} />
                 <TextInput
                     style={styles.input}
-                    value={chatId}
-                    onChangeText={setChatId}
+                    value={tgCode}
+                    onChangeText={(t) => setTgCode(t.replace(/\D/g, '').slice(0, 6))}
                     keyboardType="numeric"
-                    placeholder="Chat ID (Bot bergan kod)"
+                    placeholder="6 xonali kod (Botdan)"
                     placeholderTextColor="#666"
+                    maxLength={6}
                 />
               </View>
               <TouchableOpacity
-                style={[styles.sendBtn, loading && styles.sendBtnDisabled]}
+                style={[styles.sendBtn, (loading || tgCode.length !== 6) && styles.sendBtnDisabled]}
                 onPress={async () => {
-                    if (!chatId) return;
+                    const rawPhone = '+' + tgPhone.replace(/\D/g, '');
+                    if (rawPhone.length !== 13 || tgCode.length !== 6) {
+                      Alert.alert("Xato", "Telefon raqam va 6 xonali kodni to'liq kiriting");
+                      return;
+                    }
                     const { login, referralCode, onboardingRole, setOnboardingRole } = useAuthStore.getState();
                     setLoading(true);
                     try {
-                        const response = await authAPI.verifyOTP(chatId, '0000', 'telegram', undefined, referralCode || undefined);
+                        const response = await authAPI.verifyTelegramOTP(rawPhone, tgCode, referralCode || undefined);
                         const { access, refresh, user } = response.data;
                         login(access, refresh, user);
-                        
+
                         if (onboardingRole === 'driver') {
                            router.replace({ pathname: '/(auth)/role-select', params: { force_role: 'driver' } });
                            setOnboardingRole(null);
+                        } else if (user.role === 'driver' && user.has_driver_profile) {
+                           router.replace('/(driver)/home');
                         } else {
-                           router.replace(user.role === 'driver' ? '/(driver)/home' : '/(passenger)/home');
+                           router.replace('/(passenger)/home');
                         }
                     } catch (e: any) {
-                        Alert.alert("Xato", "Chat ID noto'g'ri yoki botdan ro'yxatdan o'tilmagan");
+                        Alert.alert("Xato", e.response?.data?.detail || "Kod noto'g'ri yoki muddati o'tgan");
                     } finally { setLoading(false); }
                 }}
-                disabled={loading}
+                disabled={loading || tgCode.length !== 6}
               >
-                <Text style={styles.sendBtnText}>Kirish</Text>
+                <Text style={styles.sendBtnText}>{loading ? "Kirilmoqda..." : "Kirish"}</Text>
               </TouchableOpacity>
             </View>
           )}
