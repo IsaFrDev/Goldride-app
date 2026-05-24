@@ -114,11 +114,17 @@ const TASHKENT = {
 };
 
 export default function DriverHomeScreen() {
-  const { user, isAuthenticated, isOnline, setIsOnline } = useAuthStore();
+  const { isAuthenticated, isOnline, setIsOnline } = useAuthStore();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const mapRef = useRef<any>(null);
   const pulseAnim = useRef(new Animated.Value(0)).current;
+
+  const [loading, setLoading] = useState(false);
+  const [location, setLocation] = useState<Location.LocationObject | null>(null);
+  const [driverStatus, setDriverStatus] = useState<string>('loading');
+  const [activeRide, setActiveRide] = useState<any>(null);
+  const [incomingRequest, setIncomingRequest] = useState<any>(null);
 
   useEffect(() => {
     navigation.getParent()?.setOptions({
@@ -132,12 +138,6 @@ export default function DriverHomeScreen() {
       }
     });
   }, [activeRide, incomingRequest]);
-
-  const [loading, setLoading] = useState(false);
-  const [location, setLocation] = useState<Location.LocationObject | null>(null);
-  const [driverStatus, setDriverStatus] = useState<string>('loading');
-  const [activeRide, setActiveRide] = useState<any>(null);
-  const [incomingRequest, setIncomingRequest] = useState<any>(null);
   const [routeCoords, setRouteCoords] = useState<any[]>([]);
   const [nearbyDrivers, setNearbyDrivers] = useState<any[]>([]);
   const [virtualDrivers, setVirtualDrivers] = useState<VirtualDriver[]>(generateVirtualDrivers());
@@ -149,6 +149,7 @@ export default function DriverHomeScreen() {
   const waitingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [happyHour, setHappyHour] = useState<any>(null);
   const [showHHModal, setShowHHModal] = useState(false);
+  const [completedRide, setCompletedRide] = useState<any>(null);
 
 
 
@@ -548,7 +549,7 @@ export default function DriverHomeScreen() {
       const resp = await ridesAPI.completeRide(activeRide.id);
       setActiveRide(null);
       setRouteCoords([]);
-      Alert.alert(t('common.success'), `Safar yakunlandi! Daromad: ${resp.data.driver_earnings} UZS`);
+      setCompletedRide(resp.data);
     } catch (error: any) {
       Alert.alert(t('common.error'), error.response?.data?.detail || t('common.error'));
     }
@@ -716,6 +717,53 @@ export default function DriverHomeScreen() {
         </View>
       )}
 
+      {/* Ride Completion Modal */}
+      <Modal
+        visible={!!completedRide}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setCompletedRide(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.hhModal, { width: '90%', alignItems: 'center' }]}>
+            <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: '#4CAF50', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
+              <Ionicons name="checkmark" size={40} color="#FFF" />
+            </View>
+            <Text style={{ fontSize: 22, fontWeight: '900', color: '#FFF', marginBottom: 6 }}>Safar yakunlandi!</Text>
+            <Text style={{ fontSize: 14, color: '#94A3B8', marginBottom: 24 }}>To'lov ma'lumotlari</Text>
+
+            <View style={{ width: '100%', backgroundColor: '#1E293B', borderRadius: 16, padding: 20, gap: 14, marginBottom: 24 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Text style={{ color: '#94A3B8', fontSize: 15 }}>Umumiy narx</Text>
+                <Text style={{ color: '#FFB800', fontSize: 18, fontWeight: '900' }}>
+                  {formatPrice(completedRide?.total_price)} UZS
+                </Text>
+              </View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Text style={{ color: '#94A3B8', fontSize: 15 }}>Komissiya</Text>
+                <Text style={{ color: '#FF5252', fontSize: 15, fontWeight: '700' }}>
+                  -{formatPrice(completedRide?.commission_amount)} UZS
+                </Text>
+              </View>
+              <View style={{ height: 1, backgroundColor: '#334155' }} />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Text style={{ color: '#FFF', fontSize: 16, fontWeight: '800' }}>Sizning daromadingiz</Text>
+                <Text style={{ color: '#4CAF50', fontSize: 20, fontWeight: '900' }}>
+                  {formatPrice(completedRide?.driver_earnings)} UZS
+                </Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.hhCloseBtn, { width: '100%' }]}
+              onPress={() => setCompletedRide(null)}
+            >
+              <Text style={styles.hhCloseBtnText}>Davom etish</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* Happy Hours Banner */}
       {isOnline && happyHour && (
         <View style={[styles.happyHourBanner, { top: insets.top + 60 }]}>
@@ -823,20 +871,20 @@ export default function DriverHomeScreen() {
           {activeRide.status === 'driver_found' || activeRide.status === 'on_the_way' ? (
             <TouchableOpacity style={styles.actionBtn} onPress={markArrived}>
               <Ionicons name="location" size={20} color="#000" />
-              <Text style={styles.actionBtnText}>{t('driver.mark_arrived')}</Text>
+              <Text style={styles.actionBtnText}>Yetib keldim</Text>
             </TouchableOpacity>
           ) : activeRide.status === 'arrived' ? (
             <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#4CAF50' }]} onPress={startRide}>
               <Ionicons name="play" size={20} color="#FFF" />
-              <Text style={[styles.actionBtnText, { color: '#FFF' }]}>{t('driver.start_ride')}</Text>
+              <Text style={[styles.actionBtnText, { color: '#FFF' }]}>Boshlash</Text>
             </TouchableOpacity>
           ) : activeRide.status === 'started' ? (
             <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: '#4CAF50' }]}
+              style={[styles.actionBtn, { backgroundColor: '#E53935' }]}
               onPress={completeRide}
             >
               <Ionicons name="flag" size={20} color="#FFF" />
-              <Text style={[styles.actionBtnText, { color: '#FFF' }]}>{t('driver.complete_ride')}</Text>
+              <Text style={[styles.actionBtnText, { color: '#FFF' }]}>Manzilga yetib keldik</Text>
             </TouchableOpacity>
           ) : null}
         </View>
