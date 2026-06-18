@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, Alert, Image, ScrollView,
@@ -7,55 +7,98 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
 import { authAPI } from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
 
+// OAuth redirect oynasini yopish uchun shart
 WebBrowser.maybeCompleteAuthSession();
-
-const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || '';
 
 export default function PhoneScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { login, onboardingRole, setOnboardingRole, referralCode } = useAuthStore();
+  const { login, referralCode } = useAuthStore();
   const [loading, setLoading] = useState(false);
 
+  // expo-auth-session Google provider — PKCE flow, to'g'ri redirect bilan
   const [request, response, promptAsync] = Google.useAuthRequest({
-    clientId: GOOGLE_CLIENT_ID,
-    iosClientId: GOOGLE_CLIENT_ID,
-    androidClientId: GOOGLE_CLIENT_ID,
-    scopes: ['profile', 'email'],
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
   });
 
-  const handleGoogleAuth = async () => {
-    try {
-      setLoading(true);
-      const result = await promptAsync();
-      if (result?.type !== 'success') return;
+  // OAuth javobi kelganda avtomatik ishga tushadi
+  useEffect(() => {
+    if (!response) return;
 
-      const { id_token } = result.authentication || {};
-      if (!id_token) throw new Error('ID token not found');
+    if (response.type === 'success') {
+      const idToken = response.authentication?.idToken;
+      const accessToken = response.authentication?.accessToken;
 
-      const res = await authAPI.googleAuth(id_token, undefined, referralCode || undefined);
-      const { access, refresh, user } = res.data;
-      login(access, refresh, user);
-
-      if (onboardingRole === 'driver') {
-        router.replace({ pathname: '/(auth)/role-select', params: { force_role: 'driver' } });
-        setOnboardingRole(null);
-      } else if (user.role === 'driver' && user.has_driver_profile) {
-        router.replace('/(driver)/home');
+      if (idToken) {
+        sendTokenToBackend(idToken);
+      } else if (accessToken) {
+        // id_token yo'q — access_token bilan user info olib, backend ga yuboramiz
+        fetchUserInfoAndLogin(accessToken);
       } else {
-        router.replace('/(passenger)/home');
+        Alert.alert('Xato', 'Google tokenini olishda muammo yuz berdi.');
+        setLoading(false);
       }
-    } catch (error: any) {
-      console.error('[Auth] Google login error:', error);
-      Alert.alert('Xato', error.response?.data?.detail || 'Kirish xatosi');
+    } else if (response.type === 'error') {
+      Alert.alert('Xato', response.error?.message || 'Google login xatosi yuz berdi.');
+      setLoading(false);
+    } else if (response.type === 'dismiss') {
+      // Foydalanuvchi o'zi yopdi
+      setLoading(false);
+    }
+  }, [response]);
+
+  const sendTokenToBackend = async (idToken: string) => {
+    try {
+      const res = await authAPI.googleAuth(idToken, undefined, referralCode || undefined);
+      const { access, refresh, user } = res.data;
+      await login(access, refresh, user);
+      router.replace(user.role === 'driver' ? '/(driver)/home' : '/(passenger)/home');
+    } catch (err: any) {
+      const data = err?.response?.data;
+      if (data?.email) {
+        // Yangi foydalanuvchi — telefon raqami kerak
+        router.push({
+          pathname: '/(auth)/otp',
+          params: {
+            mode: 'google_register',
+            google_id_token: idToken,
+            email: data.email,
+            first_name: data.first_name || '',
+          },
+        });
+      } else {
+        Alert.alert('Xato', data?.detail || 'Kirish xatosi yuz berdi.');
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchUserInfoAndLogin = async (accessToken: string) => {
+    try {
+      // Google UserInfo endpoint orqali user ma'lumotlarini olamiz
+      const userInfoRes = await fetch('https://www.googleapis.com/userinfo/v2/me', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!userInfoRes.ok) throw new Error('UserInfo xatosi');
+      // accessToken ni id_token sifatida yuboramiz (backend Google tokeninfo API bilan tekshiradi)
+      await sendTokenToBackend(accessToken);
+    } catch {
+      Alert.alert('Xato', 'Google foydalanuvchi ma\'lumotlarini olishda xato.');
+      setLoading(false);
+    }
+  };
+
+  const handleGooglePress = async () => {
+    setLoading(true);
+    await promptAsync();
   };
 
   return (
@@ -89,8 +132,8 @@ export default function PhoneScreen() {
           </View>
 
           <TouchableOpacity
-            style={[styles.googleBtn, loading && styles.buttonDisabled]}
-            onPress={handleGoogleAuth}
+            style={[styles.googleBtn, (loading || !request) && styles.buttonDisabled]}
+            onPress={handleGooglePress}
             disabled={loading || !request}
           >
             {loading ? (
