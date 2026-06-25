@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView, Switch, ActivityIndicator, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView, Switch, ActivityIndicator, TextInput, Share, Clipboard } from 'react-native';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,6 +6,8 @@ import * as Location from 'expo-location';
 import { t, Language } from '../../services/i18n';
 import { useAuthStore } from '../../stores/authStore';
 import { authAPI } from '../../services/api';
+
+const INVITE_BASE_URL = 'https://goldride.taxi/invite';
 
 export default function DriverProfileScreen() {
   const router = useRouter();
@@ -170,6 +172,55 @@ export default function DriverProfileScreen() {
         <Text style={styles.inputHint}>* To'ldirish va yechish so'rovlari uchun kerak</Text>
       </View>
 
+      {/* Haydovchi referal karodi */}
+      {user?.referral_code && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Haydovchilarni taklif qil</Text>
+          <View style={styles.referralCard}>
+            <View style={styles.referralTop}>
+              <View>
+                <Text style={styles.referralLabel}>Sizning kodingiz</Text>
+                <Text style={styles.referralCode}>{user.referral_code}</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.copyBtn}
+                onPress={() => {
+                  Clipboard.setString(`${INVITE_BASE_URL}/${user.referral_code}`);
+                  Alert.alert('Nusxalandi!', 'Havola nusxalandi.');
+                }}
+              >
+                <Ionicons name="copy-outline" size={20} color="#FFB800" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.referralBonusRow}>
+              <View style={styles.referralBonusItem}>
+                <Ionicons name="car" size={16} color="#FFB800" />
+                <Text style={styles.referralBonusText}>Taklif qilgan haydovchidan 0.5% bonus</Text>
+              </View>
+              <View style={styles.referralBonusItem}>
+                <Ionicons name="person" size={16} color="#4CAF50" />
+                <Text style={[styles.referralBonusText, { color: '#4CAF50' }]}>Yo'lovchining safarlaridan ham 0.5%</Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.shareBtn}
+              onPress={async () => {
+                const link = `${INVITE_BASE_URL}/${user.referral_code}`;
+                try {
+                  await Share.share({
+                    message: `🚕 Goldride haydovchisi bo'ling!\n\nMening taklif kodigim bilan ro'yxatdan o'ting — ikkimiz ham bonus olamiz!\n\n👉 ${link}`,
+                    url: link,
+                  });
+                } catch (e) {}
+              }}
+            >
+              <Ionicons name="share-social" size={20} color="#000" />
+              <Text style={styles.shareBtnText}>Do'stlarga ulashish</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       {/* Language */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>{t('profile.language')}</Text>
@@ -276,4 +327,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#1A160A', borderWidth: 1, borderColor: '#FFB800',
   },
   switchText: { fontSize: 16, fontWeight: '700', color: '#FFB800' },
+  referralCard: { backgroundColor: '#1A1A0A', borderRadius: 20, padding: 20, borderWidth: 1, borderColor: '#3D3000' },
+  referralTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  referralLabel: { fontSize: 12, color: '#888', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 },
+  referralCode: { fontSize: 26, fontWeight: '900', color: '#FFB800', letterSpacing: 3, marginTop: 4 },
+  copyBtn: { backgroundColor: '#2D260D', padding: 10, borderRadius: 12, borderWidth: 1, borderColor: '#FFB800' },
+  referralBonusRow: { gap: 8, marginBottom: 16 },
+  referralBonusItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  referralBonusText: { fontSize: 13, color: '#CCC', fontWeight: '500' },
+  shareBtn: { backgroundColor: '#FFB800', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 14, borderRadius: 16, shadowColor: '#FFB800', shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
+  shareBtnText: { fontSize: 16, fontWeight: '800', color: '#000' },
 });

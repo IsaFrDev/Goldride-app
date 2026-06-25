@@ -15,6 +15,10 @@ interface User {
   id_number: number;
   referral_code: string;
   gold_points: number;
+  bonus_balance: number;
+  has_agreed_to_terms: boolean;
+  total_passenger_rides: number;
+  pending_referral_bonus: number;
 }
 
 interface AuthState {

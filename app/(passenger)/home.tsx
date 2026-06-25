@@ -121,7 +121,7 @@ export default function PassengerHomeScreen() {
   const [shareType, setShareType] = useState<'solo' | 'shared_1' | 'shared_2'>('solo');
   
   const { recent, addSearch } = useRecentSearchesStore();
-  const searchTimeout = useRef<NodeJS.Timeout | null>(null);
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pinCode] = useState(() => Math.floor(1000 + Math.random() * 9000).toString());
 
   // Multi-stop and Scheduled
@@ -380,7 +380,7 @@ export default function PassengerHomeScreen() {
 
   // Poll for status as absolute fallback (much slower)
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setTimeout>;
     if (ride.rideRequestId && (ride.status === 'pending' || ride.status === 'accepted' || ride.status === 'driver_found' || ride.status === 'arrived' || ride.status === 'picked_up')) {
       const checkStatus = async () => {
         try {
@@ -396,58 +396,40 @@ export default function PassengerHomeScreen() {
     return () => interval && clearInterval(interval);
   }, [ride.rideRequestId, ride.status]);
 
-  // 4. Map: sync nearby drivers → 3D car markers
+  // 4. Map: sync nearby drivers → markers (state orqali render qilinadi)
+  // updateDrivers/clearAllDrivers/setRoute metodlari custom WebGL map uchun edi,
+  // lekin react-native-maps da ular yo'q — state orqali hal qilamiz (pastdagi JSX)
+  // Shuning uchun bu effectlar faqat optional chaining bilan chaqiriladi.
   useEffect(() => {
     if (!mapRef.current) return;
-    if (uiStep === 'idle' && displayedDrivers.length > 0) {
-      const payload = displayedDrivers.map((d: any) => ({
-        id: d.id,
-        lat: d.current_lat,
-        lng: d.current_lng,
-        rotation: 0,
-        isActive: false,
-      })).filter((d: any) => d.lat && d.lng);
-      mapRef.current.updateDrivers(payload);
-    } else if (uiStep !== 'ride_active') {
-      mapRef.current.clearAllDrivers?.();
-    }
+    mapRef.current.updateDrivers?.([]);      // faqat custom map uchun
+    mapRef.current.clearAllDrivers?.();      // faqat custom map uchun
   }, [displayedDrivers, uiStep]);
 
-  // 4b. Map: sync active driver location
+  // 4b. Map: sync active driver location (state orqali)
   useEffect(() => {
     if (!mapRef.current) return;
-    if (uiStep === 'ride_active' && ride.driverLocation) {
-      mapRef.current.updateDrivers([{
-        id: 'active-driver',
-        lat: ride.driverLocation.lat,
-        lng: ride.driverLocation.lng,
-        rotation: 0,
-        isActive: true,
-      }]);
-    }
+    mapRef.current.updateDrivers?.([]);      // faqat custom map uchun
   }, [ride.driverLocation, uiStep]);
 
-  // 4c. Map: user location dot
+  // 4c. Map: user location — showsUserLocation prop orqali hal qilinadi
   useEffect(() => {
     if (!mapRef.current || !location) return;
-    mapRef.current.updateUserLocation(location.coords.latitude, location.coords.longitude);
+    mapRef.current.updateUserLocation?.(location.coords.latitude, location.coords.longitude);
   }, [location]);
 
-  // 4d. Map: route polyline
+  // 4d. Map: route polyline (state orqali render qilinadi)
   useEffect(() => {
     if (!mapRef.current) return;
-    if (routeCoords.length > 1) {
-      mapRef.current.setRoute(routeCoords);
-    } else {
-      mapRef.current.clearRoute?.();
-    }
+    mapRef.current.setRoute?.(routeCoords);
+    if (routeCoords.length === 0) mapRef.current.clearRoute?.();
   }, [routeCoords]);
 
-  // 4e. Map: destination marker
+  // 4e. Map: destination marker (state orqali render qilinadi)
   useEffect(() => {
     if (!mapRef.current) return;
-    if (ride.destination?.lat && (uiStep === 'estimate' || uiStep === 'ride_active')) {
-      mapRef.current.setDestination(ride.destination.lat, ride.destination.lng);
+    if (ride.destination?.lat) {
+      mapRef.current.setDestination?.(ride.destination?.lat, ride.destination?.lng);
     } else {
       mapRef.current.clearDestination?.();
     }
@@ -574,7 +556,6 @@ export default function PassengerHomeScreen() {
         const estResp = await ridesAPI.estimatePrice({
           pickup_lat: ride.pickup.lat, pickup_lng: ride.pickup.lng,
           drop_lat: dest.lat, drop_lng: dest.lng,
-          share_type: 'solo',
           is_scheduled: isScheduled,
           stops_count: stops.length,
         });
@@ -598,7 +579,7 @@ export default function PassengerHomeScreen() {
         console.warn('OSRM No Route fallback');
         setRouteCoords([
           { latitude: ride.pickup.lat, longitude: ride.pickup.lng },
-          { latitude: ride.destination.lat, longitude: ride.destination.lng }
+          { latitude: ride.destination?.lat ?? 0, longitude: ride.destination?.lng ?? 0 }
         ]);
         
         const estResp = await ridesAPI.estimatePrice({
@@ -736,7 +717,7 @@ export default function PassengerHomeScreen() {
               await ridesAPI.triggerSOS({
                 latitude: location.coords.latitude,
                 longitude: location.coords.longitude,
-                ride_id: ride.id || undefined
+                ride_id: ride.rideId || undefined
               });
               Alert.alert('SOS', 'Signal yuborildi. Yordam yo\'lda. Iltimos xotirjamlikni saqlang.');
             } catch (e) {
@@ -879,25 +860,60 @@ export default function PassengerHomeScreen() {
       <View style={styles.bottomSection}>
         {uiStep === 'idle' && (
           <View style={styles.idlePanel}>
-            <View style={styles.idleLocationHeader}>
-                <Ionicons name="navigate-circle" size={18} color="#FFB800" />
-                <Text style={styles.idleLocationText} numberOfLines={1}>{pickupAddress}</Text>
+            {/* Ikki input: yuqorida "Qayerdasiz", pastda "Qayerga borasiz?" */}
+            <View style={styles.twoInputBox}>
+              {/* Yuqori: joriy joylashuv */}
+              <TouchableOpacity
+                style={styles.twoInputRow}
+                onPress={() => {
+                  setActiveInput('pickup');
+                  setShowSearch(true);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={styles.twoInputDot}>
+                  <View style={styles.twoInputDotInner} />
+                </View>
+                <Text style={styles.twoInputPickupText} numberOfLines={1}>
+                  {pickupAddress || 'Hozirgi joylashuvingiz'}
+                </Text>
+              </TouchableOpacity>
+
+              <View style={styles.twoInputDivider} />
+
+              {/* Quyi: manzil qidirish */}
+              <TouchableOpacity
+                style={styles.twoInputRow}
+                onPress={() => {
+                  setActiveInput('dest');
+                  setShowSearch(true);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.twoInputDot, { backgroundColor: '#FFB800' }]}>
+                  <View style={[styles.twoInputDotInner, { backgroundColor: '#000' }]} />
+                </View>
+                <Text style={[styles.twoInputPickupText, { color: destAddress ? '#FFF' : '#666' }]} numberOfLines={1}>
+                  {destAddress || 'Qayerga borasiz?'}
+                </Text>
+                {!destAddress && (
+                  <Ionicons name="search" size={18} color="#444" style={{ marginLeft: 'auto' }} />
+                )}
+              </TouchableOpacity>
             </View>
 
-            <TouchableOpacity style={styles.searchBox} onPress={() => setShowSearch(true)}>
-                <Ionicons name="search" size={22} color="#FFB800" />
-                <Text style={styles.searchPlaceholderText}>Qayerga borasiz?</Text>
-            </TouchableOpacity>
-            
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.recentList}>
+            {/* Oxirgi qidiruvlar */}
+            {recent.length > 0 && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.recentList}>
                 {recent.map(r => (
-                    <TouchableOpacity key={r.id} style={styles.recentItem} onPress={() => onSelectPlace(r)}>
-                        <Ionicons name="time-outline" size={16} color="#888" />
-                        <Text style={styles.recentText} numberOfLines={1}>{r.name}</Text>
-                    </TouchableOpacity>
+                  <TouchableOpacity key={r.id} style={styles.recentItem} onPress={() => onSelectPlace(r)}>
+                    <Ionicons name="time-outline" size={16} color="#888" />
+                    <Text style={styles.recentText} numberOfLines={1}>{r.name}</Text>
+                  </TouchableOpacity>
                 ))}
-            </ScrollView>
-            
+              </ScrollView>
+            )}
+
             <View style={{ height: insets.bottom }} />
           </View>
         )}
@@ -1150,11 +1166,30 @@ export default function PassengerHomeScreen() {
                 <TouchableOpacity onPress={() => setShowSearch(false)} style={styles.backBtn}>
                     <Ionicons name="chevron-down" size={32} color="#AAA" />
                 </TouchableOpacity>
-                <Text style={styles.modalTitle}>Qayerga borasiz?</Text>
+                <Text style={styles.modalTitle}>
+                  {activeInput === 'pickup' ? 'Qaerdan chiqasiz?' : 'Qayerga borasiz?'}
+                </Text>
             </View>
-            
+
             <View style={styles.modalSearchBox}>
                 <View style={styles.inputContainer}>
+                    {/* Pickup input (agar pickup tanlash rejimida bo'lsa) */}
+                    {activeInput === 'pickup' && (
+                      <View style={[styles.modalInputRow, { borderBottomWidth: 1, borderBottomColor: '#2A2A2A' }]}>
+                        <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#555', marginLeft: 15, marginRight: 3 }}>
+                          <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: '#FFF', margin: 3.5 }} />
+                        </View>
+                        <TextInput
+                          style={styles.modalInput}
+                          placeholder="Olib ketish manzilini qidiring..."
+                          value={pickupAddress}
+                          onChangeText={(t) => setPickupAddress(t)}
+                          autoFocus
+                          placeholderTextColor="#555"
+                        />
+                      </View>
+                    )}
+
                     {/* Selected Stops */}
                     {stops.map((stop, idx) => (
                         <View key={stop.id} style={styles.stopChip}>
@@ -1166,17 +1201,22 @@ export default function PassengerHomeScreen() {
                         </View>
                     ))}
 
+                    {activeInput !== 'pickup' && (
                     <View style={styles.modalInputRow}>
-                        <Ionicons name="search" size={20} color={activeInput === 'dest' ? "#AAA" : "#FFB800"} style={{ marginLeft: 15 }} />
-                        <TextInput 
+                        <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#FFB800', marginLeft: 15, marginRight: 3, alignItems: 'center', justifyContent: 'center' }}>
+                          <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: '#000' }} />
+                        </View>
+                        <TextInput
                             style={styles.modalInput}
-                            placeholder={activeInput === 'dest' ? "Manzilni qidiring..." : "Oraliq manzilni qidiring..."}
+                            placeholder="Manzilni qidiring..."
                             value={destAddress}
                             onChangeText={handleAddressChange}
                             autoFocus
+                            placeholderTextColor="#555"
                         />
                     </View>
-                    
+                    )}
+
                     <View style={styles.searchModalFooter}>
                         <TouchableOpacity 
                             style={styles.addStopBtn} 
@@ -1323,18 +1363,58 @@ const styles = StyleSheet.create({
   pinContainer: { alignItems: 'center', marginBottom: 40 },
   pinShadow: { width: 8, height: 4, backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 4, marginTop: -2 },
   bottomSection: { position: 'absolute', bottom: 30, left: 0, right: 0, zIndex: 10 },
-  idlePanel: { 
-    backgroundColor: '#121212', padding: 24, paddingBottom: 40, 
+  idlePanel: {
+    backgroundColor: '#121212', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8,
     borderTopLeftRadius: 30, borderTopRightRadius: 30,
     shadowColor: '#000', shadowOffset: { width: 0, height: -10 },
-    shadowOpacity: 0.3, shadowRadius: 20, elevation: 20 
+    shadowOpacity: 0.3, shadowRadius: 20, elevation: 20,
   },
-  searchBox: { 
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E1E1E', 
-    padding: 18, borderRadius: 20, gap: 12 
+  twoInputBox: {
+    backgroundColor: '#1C1C1C',
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    marginBottom: 12,
+  },
+  twoInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 12,
+  },
+  twoInputDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#555',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  twoInputDotInner: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: '#FFF',
+  },
+  twoInputPickupText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#CCC',
+  },
+  twoInputDivider: {
+    height: 1,
+    backgroundColor: '#2A2A2A',
+    marginLeft: 40,
+  },
+  searchBox: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E1E1E',
+    padding: 18, borderRadius: 20, gap: 12
   },
   searchPlaceholderText: { fontSize: 18, fontWeight: '700', color: '#FFF' },
-  recentList: { marginTop: 20 },
+  recentList: { marginTop: 4 },
   recentItem: { 
     flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E1E1E', 
     paddingHorizontal: 15, paddingVertical: 10, borderRadius: 20, marginRight: 10, gap: 8 
@@ -1407,10 +1487,6 @@ const styles = StyleSheet.create({
     shadowColor: '#FFB800', shadowOpacity: 0.3, shadowRadius: 10, elevation: 8 
   },
   primaryBtnText: { color: '#000', fontSize: 18, fontWeight: '800' },
-  estimatePanel: { 
-    backgroundColor: '#121212', padding: 24, paddingBottom: 40, 
-    borderTopLeftRadius: 30, borderTopRightRadius: 30 
-  },
   estimateHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   etaInfo: { fontSize: 14, color: '#FFB800', fontWeight: '700' },
   destName: { fontSize: 16, fontWeight: '600', color: '#FFF', marginTop: 2 },
@@ -1422,10 +1498,16 @@ const styles = StyleSheet.create({
   modeActive: { backgroundColor: '#2D260D', borderColor: '#FFB800' },
   modePrice: { fontSize: 17, fontWeight: '800', color: '#FFF' },
   modeLabel: { fontSize: 13, color: '#94A3B8', fontWeight: '700' },
-  ridePanel: { 
-    backgroundColor: '#121212', padding: 24, paddingBottom: 40, 
-    borderTopLeftRadius: 30, borderTopRightRadius: 30 
+  ridePanel: {
+    backgroundColor: '#121212', padding: 24, paddingBottom: 40,
+    borderTopLeftRadius: 30, borderTopRightRadius: 30
   },
+  payInfoCard: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+    backgroundColor: '#1A1A1A', padding: 12, borderRadius: 12, marginTop: 12,
+    borderWidth: 1, borderColor: '#FFB800',
+  },
+  payInfoText: { flex: 1, fontSize: 13, color: '#CCC', fontWeight: '500', lineHeight: 18 },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
   activeStatusText: { fontSize: 16, fontWeight: '800', color: '#FFF' },
   arrivalEstimateText: { fontSize: 13, fontWeight: '600', color: '#FFB800', marginTop: 2 },
@@ -1445,9 +1527,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#2A2A2A', padding: 12, borderRadius: 14, gap: 8, borderWidth: 1, borderColor: '#333' 
   },
   actionBtnText: { fontSize: 14, fontWeight: '700', color: '#FFB800' },
-  idlePanel: { padding: 20 },
-  idleLocationHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12, backgroundColor: '#1A1A1A', padding: 8, borderRadius: 12, borderSize: 1, borderColor: '#333' },
+  idleLocationHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12, backgroundColor: '#1A1A1A', padding: 8, borderRadius: 12, borderWidth: 1, borderColor: '#333' },
   idleLocationText: { fontSize: 13, fontWeight: '600', color: '#94A3B8', flex: 1 },
+  // idleLocationHeader eski stil — twoInputBox bilan almashtirildi
   cancelLink: { padding: 10 },
   cancelText: { color: '#FF5252', fontWeight: '700' },
   cancelFullBtn: { backgroundColor: '#1E1E1E', padding: 15, borderRadius: 15, alignItems: 'center', borderWidth: 1, borderColor: '#333' },

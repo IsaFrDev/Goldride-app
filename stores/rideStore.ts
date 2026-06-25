@@ -27,6 +27,7 @@ interface RideState {
   destination: RideLocation | null;
 
   // Ride info
+  id: number | null;       // alias for rideId (backward compat)
   rideId: number | null;
   rideRequestId: number | null;
   status: string | null;
@@ -66,6 +67,7 @@ interface RideState {
 export const useRideStore = create<RideState>((set) => ({
   pickup: null,
   destination: null,
+  id: null,
   rideId: null,
   rideRequestId: null,
   status: null,
@@ -93,7 +95,7 @@ export const useRideStore = create<RideState>((set) => ({
     }),
 
   setRide: (rideId, requestId) =>
-    set({ rideId, rideRequestId: requestId, status: 'searching' }),
+    set({ rideId, id: rideId, rideRequestId: requestId, status: 'searching' }),
 
   setStatus: (status) => set({ status }),
   setDriver: (driver) => set({ driver }),
@@ -103,6 +105,7 @@ export const useRideStore = create<RideState>((set) => ({
 
   resetRide: () =>
     set({
+      id: null,
       rideId: null,
       rideRequestId: null,
       status: null,

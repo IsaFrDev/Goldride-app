@@ -15,20 +15,31 @@ export default function RootLayout() {
   useEffect(() => {
     loadStoredAuth();
     
-    // Handle Deep Linking (Referral Codes)
+    // Deep link handler
+    // Qo'llab-quvvatlanadigan formatlar:
+    //   goldride://invite?code=GOLD123456
+    //   https://goldride.taxi/invite/GOLD123456
     const handleDeepLink = (event: { url: string }) => {
-        let data = Linking.parse(event.url);
-        // Supports: goldride://ref/CODE or https://goldride.uz/ref/CODE
-        if (data.path === 'ref' || data.queryParams?.ref) {
-            const code = data.queryParams?.ref || data.path?.split('/')[1];
-            if (code) setReferralCode(code);
+      try {
+        const data = Linking.parse(event.url);
+        const path = data.path || '';
+
+        // goldride://invite?code=GOLD123456
+        if (path === 'invite' && data.queryParams?.code) {
+          setReferralCode(String(data.queryParams.code));
+          return;
         }
+        // https://goldride.taxi/invite/GOLD123456
+        const inviteMatch = path.match(/^invite\/([A-Z0-9]+)$/i);
+        if (inviteMatch) {
+          setReferralCode(inviteMatch[1]);
+        }
+      } catch (_) {}
     };
 
-    Linking.addEventListener('url', handleDeepLink);
-    Linking.getInitialURL().then((url) => {
-        if (url) handleDeepLink({ url });
-    });
+    const sub = Linking.addEventListener('url', handleDeepLink);
+    Linking.getInitialURL().then((url) => { if (url) handleDeepLink({ url }); });
+    return () => sub.remove();
     
     // Network listener
     const checkNetwork = async () => {

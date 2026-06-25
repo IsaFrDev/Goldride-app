@@ -17,6 +17,9 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "uz.goldride.app",
+      "associatedDomains": [
+        "applinks:goldride.taxi"
+      ],
       "buildNumber": "1.0.0",
       "config": {
         "googleMapsApiKey": "AIzaSyDummyKey_For_Build_Stability"
@@ -39,6 +42,23 @@
       },
       "package": "uz.goldride.app",
       "versionCode": 3,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "goldride.taxi",
+              "pathPrefix": "/invite"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ],
       "permissions": [
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
@@ -69,7 +89,8 @@
         {
           "photosPermission": "Profil rasmi uchun kerak."
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "extra": {
       "router": {},
