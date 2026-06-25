@@ -10,8 +10,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
+import Constants from 'expo-constants';
 import { authAPI } from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
+
 
 
 // OAuth redirect oynasini yopish uchun shart
@@ -33,14 +35,16 @@ export default function PhoneScreen() {
   const [regPhone, setRegPhone] = useState('');
   const [googleIdToken, setGoogleIdToken] = useState<string | null>(null);
 
+  const isExpoGo = Constants.appOwnership === 'expo';
+
   // expo-auth-session Google provider — PKCE flow, to'g'ri redirect bilan
   const [request, response, promptAsync] = Google.useAuthRequest({
     androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
     iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    redirectUri: makeRedirectUri({
-      scheme: 'goldride',
-    }),
+    redirectUri: isExpoGo 
+      ? 'https://auth.expo.io/@isa.dev/goldride-taxi' 
+      : makeRedirectUri({ scheme: 'goldride' }),
   });
 
 
@@ -158,7 +162,7 @@ export default function PhoneScreen() {
 
   const handleGooglePress = async () => {
     setLoading(true);
-    await promptAsync();
+    await promptAsync({ useProxy: isExpoGo });
   };
 
   // Ro'yxatdan o'tishni yakunlash (Finish registration)
