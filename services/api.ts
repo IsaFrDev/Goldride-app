@@ -111,20 +111,13 @@ api.interceptors.response.use(
 
 // Auth API
 export const authAPI = {
-  sendOTP: (phone?: string, email?: string) => api.post('/auth/send-otp/', { phone, email }),
-  verifyOTP: (identifier: string, otp: string, type: 'phone' | 'email' | 'telegram' = 'phone', phone?: string, referralCode?: string) => {
-    const key = type === 'telegram' ? 'telegram_username' : type;
-    return api.post('/auth/verify-otp/', {
-        [key]: identifier,
-        otp,
-        phone,
-        referral_code: referralCode
-    });
-  },
-  verifyTelegramOTP: (phone: string, code: string, referralCode?: string) =>
-    api.post('/auth/verify-otp/', { phone, otp: code, tg_login: true, referral_code: referralCode }),
-  loginDirect: (phone: string, referralCode?: string) => 
-    api.post('/auth/login-direct/', { phone, referral_code: referralCode }),
+  // Google (Firebase) — yagona kirish usuli
+  // phone majburiy yangi foydalanuvchilar uchun
+  googleAuth: (idToken: string, phone?: string, referralCode?: string) =>
+    api.post('/auth/auth/google/', { id_token: idToken, phone, referral_code: referralCode }),
+  emailAuth: (email: string, phone?: string, referralCode?: string) =>
+    api.post('/auth/auth/email/', { email, phone, referral_code: referralCode }),
+
   register: (data: any) => api.post('/auth/register/', data),
   registerDriver: (data: FormData) =>
     api.post('/auth/register/driver/', data, {
@@ -141,8 +134,11 @@ export const authAPI = {
   getWallet: () => api.get('/auth/wallet/'),
   depositWallet: (amount: number) => api.post('/auth/wallet/deposit/', { amount }),
   getWalletRequests: () => api.get('/auth/wallet/requests/'),
-  createWalletRequest: (data: { request_type: 'deposit' | 'withdraw', amount: number }) => 
+  createWalletRequest: (data: { request_type: 'deposit' | 'withdraw', amount: number }) =>
     api.post('/auth/wallet/requests/', data),
+  // Referal daromadlar — kimdan qancha bonus tushgani (o'z keshbegidan alohida)
+  getReferralEarnings: () => api.get('/auth/referral/earnings/'),
+  withdrawReferral: (amount: number) => api.post('/auth/wallet/withdraw-referral/', { amount }),
 };
 
 // Rides API
@@ -152,6 +148,7 @@ export const ridesAPI = {
     pickup_lng: number;
     drop_lat: number;
     drop_lng: number;
+    share_type?: string;
     is_shared?: boolean;
     is_scheduled?: boolean;
     stops_count?: number;
@@ -164,6 +161,8 @@ export const ridesAPI = {
     drop_lat: number;
     drop_lng: number;
     drop_address?: string;
+    car_category?: string;
+    payment_method?: 'cash' | 'card' | 'bonus';
     is_shared?: boolean;
     share_type?: string;
     use_bonus?: boolean;

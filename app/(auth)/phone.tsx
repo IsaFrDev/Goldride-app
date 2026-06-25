@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, Alert, Image, ScrollView,
-  ActivityIndicator,
+  ActivityIndicator, TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,14 +18,25 @@ WebBrowser.maybeCompleteAuthSession();
 export default function PhoneScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { login, referralCode } = useAuthStore();
+  const { login, referralCode, onboardingRole, setOnboardingRole } = useAuthStore();
+  
   const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState('');
+  
+  // Ro'yxatdan o'tish holati (Yangi foydalanuvchilar uchun)
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [regEmail, setRegEmail] = useState('');
+  const [regFirstName, setRegFirstName] = useState('');
+  const [regLastName, setRegLastName] = useState('');
+  const [regPhone, setRegPhone] = useState('');
+  const [googleIdToken, setGoogleIdToken] = useState<string | null>(null);
 
   // expo-auth-session Google provider — PKCE flow, to'g'ri redirect bilan
   const [request, response, promptAsync] = Google.useAuthRequest({
     androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
     iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    redirectUri: 'https://auth.expo.io/@isa.dev/goldride-taxi',
   });
 
   // OAuth javobi kelganda avtomatik ishga tushadi
@@ -37,10 +48,9 @@ export default function PhoneScreen() {
       const accessToken = response.authentication?.accessToken;
 
       if (idToken) {
-        sendTokenToBackend(idToken);
+        sendGoogleTokenToBackend(idToken);
       } else if (accessToken) {
-        // id_token yo'q — access_token bilan user info olib, backend ga yuboramiz
-        fetchUserInfoAndLogin(accessToken);
+        fetchGoogleUserInfoAndLogin(accessToken);
       } else {
         Alert.alert('Xato', 'Google tokenini olishda muammo yuz berdi.');
         setLoading(false);
@@ -49,49 +59,94 @@ export default function PhoneScreen() {
       Alert.alert('Xato', response.error?.message || 'Google login xatosi yuz berdi.');
       setLoading(false);
     } else if (response.type === 'dismiss') {
-      // Foydalanuvchi o'zi yopdi
       setLoading(false);
     }
   }, [response]);
 
-  const sendTokenToBackend = async (idToken: string) => {
+  // Google orqali backendga yuborish
+  const sendGoogleTokenToBackend = async (idToken: string, phoneVal?: string) => {
     try {
-      const res = await authAPI.googleAuth(idToken, undefined, referralCode || undefined);
+      setLoading(true);
+      const res = await authAPI.googleAuth(idToken, phoneVal, referralCode || undefined);
       const { access, refresh, user } = res.data;
       await login(access, refresh, user);
-      router.replace(user.role === 'driver' ? '/(driver)/home' : '/(passenger)/home');
+      
+      // Agar yangi foydalanuvchi bo'lsa yoki roli tanlanmagan bo'lsa role-select ga o'tadi
+      if (!user.first_name || onboardingRole === 'driver') {
+        router.replace({
+          pathname: '/(auth)/role-select',
+          params: { force_role: onboardingRole || undefined }
+        });
+        setOnboardingRole(null);
+      } else {
+        router.replace(user.role === 'driver' ? '/(driver)/home' : '/(passenger)/home');
+      }
     } catch (err: any) {
       const data = err?.response?.data;
-      if (data?.email) {
-        // Yangi foydalanuvchi — telefon raqami kerak
-        router.push({
-          pathname: '/(auth)/otp',
-          params: {
-            mode: 'google_register',
-            google_id_token: idToken,
-            email: data.email,
-            first_name: data.first_name || '',
-          },
-        });
+      if (data?.email && !phoneVal) {
+        // Yangi foydalanuvchi — Telefon raqamini kiritish oynasini ochamiz
+        setRegEmail(data.email);
+        setRegFirstName(data.first_name || '');
+        setRegLastName(data.last_name || '');
+        setGoogleIdToken(idToken);
+        setIsRegistering(true);
       } else {
-        Alert.alert('Xato', data?.detail || 'Kirish xatosi yuz berdi.');
+        Alert.alert('Xato', data?.detail || 'Tizimga kirishda xatolik yuz berdi.');
       }
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchUserInfoAndLogin = async (accessToken: string) => {
+  // Google AccessToken orqali profil ma'lumotlarini olish
+  const fetchGoogleUserInfoAndLogin = async (accessToken: string) => {
     try {
-      // Google UserInfo endpoint orqali user ma'lumotlarini olamiz
       const userInfoRes = await fetch('https://www.googleapis.com/userinfo/v2/me', {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (!userInfoRes.ok) throw new Error('UserInfo xatosi');
-      // accessToken ni id_token sifatida yuboramiz (backend Google tokeninfo API bilan tekshiradi)
-      await sendTokenToBackend(accessToken);
+      await sendGoogleTokenToBackend(accessToken);
     } catch {
-      Alert.alert('Xato', 'Google foydalanuvchi ma\'lumotlarini olishda xato.');
+      Alert.alert('Xato', "Google foydalanuvchi ma'lumotlarini olishda xato.");
+      setLoading(false);
+    }
+  };
+
+  // Email orqali backendga yuborish
+  const handleEmailLogin = async (emailVal: string, phoneVal?: string) => {
+    if (!emailVal.includes('@')) {
+      Alert.alert('Xato', 'Iltimos, to\'g\'ri email manzili kiriting.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const res = await authAPI.emailAuth(emailVal, phoneVal, referralCode || undefined);
+      const { access, refresh, user } = res.data;
+      await login(access, refresh, user);
+
+      if (!user.first_name || onboardingRole === 'driver') {
+        router.replace({
+          pathname: '/(auth)/role-select',
+          params: { force_role: onboardingRole || undefined }
+        });
+        setOnboardingRole(null);
+      } else {
+        router.replace(user.role === 'driver' ? '/(driver)/home' : '/(passenger)/home');
+      }
+    } catch (err: any) {
+      const data = err?.response?.data;
+      if (data?.email && !phoneVal) {
+        // Yangi foydalanuvchi — ma'lumotlarni kiritish oynasini ochamiz
+        setRegEmail(data.email);
+        setRegFirstName(data.first_name || '');
+        setRegLastName(data.last_name || '');
+        setGoogleIdToken(null); // Google emas, email orqali registratsiya
+        setIsRegistering(true);
+      } else {
+        Alert.alert('Xato', data?.detail || 'Tizimga kirishda xatolik yuz berdi.');
+      }
+    } finally {
       setLoading(false);
     }
   };
@@ -99,6 +154,27 @@ export default function PhoneScreen() {
   const handleGooglePress = async () => {
     setLoading(true);
     await promptAsync();
+  };
+
+  // Ro'yxatdan o'tishni yakunlash (Finish registration)
+  const handleCompleteRegistration = async () => {
+    if (!regPhone || regPhone.length < 9) {
+      Alert.alert('Xato', 'Iltimos, telefon raqamini to\'liq kiriting.');
+      return;
+    }
+    if (!regFirstName.trim()) {
+      Alert.alert('Xato', 'Ismingizni kiriting.');
+      return;
+    }
+
+    // Google yoki Email orqali ro'yxatdan o'tishni davom ettiramiz
+    if (googleIdToken) {
+      // Ismlarni o'zgartirish kerak bo'lsa, backend profile orqali yangilaydi.
+      // Hozircha login qilib, keyin profildan saqlaymiz.
+      await sendGoogleTokenToBackend(googleIdToken, regPhone);
+    } else {
+      await handleEmailLogin(regEmail, regPhone);
+    }
   };
 
   return (
@@ -109,7 +185,13 @@ export default function PhoneScreen() {
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) }]}>
         <TouchableOpacity
           style={styles.backBtn}
-          onPress={() => router.back()}
+          onPress={() => {
+            if (isRegistering) {
+              setIsRegistering(false);
+            } else {
+              router.back();
+            }
+          }}
         >
           <Ionicons name="arrow-back" size={24} color="#FFB800" />
         </TouchableOpacity>
@@ -126,36 +208,135 @@ export default function PhoneScreen() {
             resizeMode="contain"
           />
 
-          <View style={styles.textGroup}>
-            <Text style={styles.title}>Goldride'ga xush kelibsiz</Text>
-            <Text style={styles.subtitle}>Google orqali tizimga kiring</Text>
-          </View>
+          {!isRegistering ? (
+            // Kirish oynasi (Google yoki Email)
+            <>
+              <View style={styles.textGroup}>
+                <Text style={styles.title}>Goldride'ga xush kelibsiz</Text>
+                <Text style={styles.subtitle}>Tizimga kirish usulini tanlang</Text>
+              </View>
 
-          <TouchableOpacity
-            style={[styles.googleBtn, (loading || !request) && styles.buttonDisabled]}
-            onPress={handleGooglePress}
-            disabled={loading || !request}
-          >
-            {loading ? (
-              <ActivityIndicator color="#000" size="small" />
-            ) : (
-              <>
-                <Ionicons name="logo-google" size={20} color="#000" />
-                <Text style={styles.googleBtnText}>Google orqali kirish</Text>
-              </>
-            )}
-          </TouchableOpacity>
+              {/* Email orqali kirish inputi */}
+              <View style={styles.inputContainer}>
+                <Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Email manzilingizni kiriting"
+                  placeholderTextColor="#666"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  value={email}
+                  onChangeText={setEmail}
+                />
+              </View>
 
-          <View style={styles.dividerContainer}>
-            <View style={styles.divider} />
-            <Text style={styles.dividerText}>Goldride xavfsiz tizim</Text>
-            <View style={styles.divider} />
-          </View>
+              <TouchableOpacity
+                style={[styles.emailBtn, (!email.trim() || loading) && styles.buttonDisabled]}
+                onPress={() => handleEmailLogin(email)}
+                disabled={!email.trim() || loading}
+              >
+                {loading && !googleIdToken ? (
+                  <ActivityIndicator color="#000" size="small" />
+                ) : (
+                  <Text style={styles.emailBtnText}>Email orqali kirish</Text>
+                )}
+              </TouchableOpacity>
 
-          <View style={styles.infoBox}>
-            <Ionicons name="shield-checkmark" size={16} color="#10B981" />
-            <Text style={styles.infoText}>Google hisob orqali kirish eng xavfsiz usul</Text>
-          </View>
+              <View style={styles.dividerContainer}>
+                <View style={styles.divider} />
+                <Text style={styles.dividerText}>yoki</Text>
+                <View style={styles.divider} />
+              </View>
+
+              {/* Google orqali kirish tugmasi */}
+              <TouchableOpacity
+                style={[styles.googleBtn, (loading || !request) && styles.buttonDisabled]}
+                onPress={handleGooglePress}
+                disabled={loading || !request}
+              >
+                {loading && googleIdToken ? (
+                  <ActivityIndicator color="#000" size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="logo-google" size={20} color="#000" />
+                    <Text style={styles.googleBtnText}>Google orqali kirish</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <View style={styles.infoBox}>
+                <Ionicons name="shield-checkmark" size={16} color="#10B981" />
+                <Text style={styles.infoText}>Barcha login va ma'lumotlar xavfsiz himoyalangan</Text>
+              </View>
+            </>
+          ) : (
+            // Ro'yxatdan o'tish oynasi (Telefon raqam va ismlarni olish)
+            <>
+              <View style={styles.textGroup}>
+                <Text style={styles.title}>Ro'yxatdan o'tish</Text>
+                <Text style={styles.subtitle}>Profilingizni yakunlash uchun ma'lumotlarni kiriting</Text>
+              </View>
+
+              {/* Email (Faqat o'qish uchun) */}
+              <View style={[styles.inputContainer, styles.inputDisabled]}>
+                <Ionicons name="mail" size={20} color="#444" style={styles.inputIcon} />
+                <TextInput
+                  style={[styles.textInput, { color: '#666' }]}
+                  value={regEmail}
+                  editable={false}
+                />
+              </View>
+
+              {/* Ism */}
+              <View style={styles.inputContainer}>
+                <Ionicons name="person-outline" size={20} color="#666" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Ismingiz"
+                  placeholderTextColor="#666"
+                  value={regFirstName}
+                  onChangeText={setRegFirstName}
+                />
+              </View>
+
+              {/* Familiya */}
+              <View style={styles.inputContainer}>
+                <Ionicons name="person-outline" size={20} color="#666" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Familiyangiz"
+                  placeholderTextColor="#666"
+                  value={regLastName}
+                  onChangeText={setRegLastName}
+                />
+              </View>
+
+              {/* Telefon raqami */}
+              <View style={styles.inputContainer}>
+                <Ionicons name="call-outline" size={20} color="#666" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Telefon raqamingiz (+998...)"
+                  placeholderTextColor="#666"
+                  keyboardType="phone-pad"
+                  value={regPhone}
+                  onChangeText={setRegPhone}
+                />
+              </View>
+
+              <TouchableOpacity
+                style={[styles.emailBtn, loading && styles.buttonDisabled]}
+                onPress={handleCompleteRegistration}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#000" size="small" />
+                ) : (
+                  <Text style={styles.emailBtnText}>Ro'yxatdan o'tishni yakunlash</Text>
+                )}
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -194,7 +375,7 @@ const styles = StyleSheet.create({
   },
   textGroup: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 30,
   },
   title: {
     fontSize: 24,
@@ -205,6 +386,48 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     color: '#888',
+    textAlign: 'center',
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#121212',
+    borderWidth: 1,
+    borderColor: '#222',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    marginBottom: 16,
+    height: 56,
+  },
+  inputIcon: {
+    marginRight: 12,
+  },
+  textInput: {
+    flex: 1,
+    color: '#FFF',
+    fontSize: 16,
+  },
+  inputDisabled: {
+    backgroundColor: '#0A0A0A',
+    borderColor: '#111',
+  },
+  emailBtn: {
+    backgroundColor: '#FFB800',
+    height: 56,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#FFB800',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
+    marginBottom: 16,
+  },
+  emailBtnText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#000',
   },
   googleBtn: {
     flexDirection: 'row',
@@ -212,7 +435,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 10,
     backgroundColor: '#FFF',
-    paddingVertical: 14,
+    height: 56,
     borderRadius: 14,
     marginBottom: 24,
   },
@@ -227,24 +450,24 @@ const styles = StyleSheet.create({
   dividerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 20,
+    marginVertical: 16,
   },
   divider: {
     flex: 1,
     height: 1,
-    backgroundColor: '#333',
+    backgroundColor: '#222',
   },
   dividerText: {
     paddingHorizontal: 12,
-    color: '#666',
-    fontSize: 12,
+    color: '#444',
+    fontSize: 14,
     fontWeight: '600',
   },
   infoBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: '#0D1F0D',
+    backgroundColor: '#07140B',
     borderRadius: 12,
     padding: 14,
     borderLeftWidth: 3,
@@ -253,7 +476,7 @@ const styles = StyleSheet.create({
   infoText: {
     flex: 1,
     fontSize: 13,
-    color: '#CCC',
+    color: '#8CA693',
     fontWeight: '500',
   },
 });
