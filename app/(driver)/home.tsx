@@ -590,6 +590,32 @@ export default function DriverHomeScreen() {
     }
   };
 
+  const cancelRide = async () => {
+    if (!activeRide) return;
+    Alert.alert(
+      'Safarni bekor qilish',
+      'Haqiqatdan ham ushbu safarni bekor qilmoqchimisiz?',
+      [
+        { text: 'Yo\'q', style: 'cancel' },
+        { 
+          text: 'Ha, bekor qilish', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await ridesAPI.cancelRide(activeRide.id);
+              setActiveRide(null);
+              setRouteCoords([]);
+              Alert.alert('Bekor qilindi', 'Safar muvaffaqiyatli bekor qilindi.');
+            } catch (error: any) {
+              Alert.alert(t('common.error'), error.response?.data?.detail || 'Bekor qilishda xato yuz berdi');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+
   const handlePickup = async (passengerId: number) => {
     if (!activeRide) return;
     try {
@@ -889,8 +915,8 @@ export default function DriverHomeScreen() {
                     {p.dropped_off ? '✅ Tushirildi' : p.picked_up ? '🚗 Mashinada' : '📍 Kutmoqda'}
                   </Text>
                 </View>
-                {/* Pickup button: only when arrived. Dropoff button: only when started */}
-                {!p.dropped_off && activeRide.status === 'arrived' && !p.picked_up && (
+                {/* Pickup button: show if the passenger is not picked up and not dropped off yet */}
+                {!p.picked_up && !p.dropped_off && (
                   <TouchableOpacity
                     style={styles.smallActionBtn}
                     onPress={() => handlePickup(p.id)}
@@ -898,7 +924,8 @@ export default function DriverHomeScreen() {
                     <Text style={styles.smallActionBtnText}>Olib ketish</Text>
                   </TouchableOpacity>
                 )}
-                {!p.dropped_off && p.picked_up && activeRide.status === 'started' && (
+                {/* Dropoff button: show if the passenger is picked up but not dropped off yet */}
+                {p.picked_up && !p.dropped_off && (
                   <TouchableOpacity
                     style={[styles.smallActionBtn, { backgroundColor: '#E53935' }]}
                     onPress={() => handleDropoff(p.id)}
@@ -910,25 +937,36 @@ export default function DriverHomeScreen() {
             ))}
           </View>
 
-          {activeRide.status === 'driver_found' || activeRide.status === 'on_the_way' ? (
-            <TouchableOpacity style={styles.actionBtn} onPress={markArrived}>
-              <Ionicons name="location" size={20} color="#000" />
-              <Text style={styles.actionBtnText}>Yetib keldim</Text>
-            </TouchableOpacity>
-          ) : activeRide.status === 'arrived' ? (
-            <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#4CAF50' }]} onPress={startRide}>
-              <Ionicons name="play" size={20} color="#FFF" />
-              <Text style={[styles.actionBtnText, { color: '#FFF' }]}>Boshlash</Text>
-            </TouchableOpacity>
-          ) : activeRide.status === 'started' ? (
-            <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: '#E53935' }]}
-              onPress={completeRide}
+          <View style={styles.actionButtonsRow}>
+            {activeRide.status === 'driver_found' || activeRide.status === 'on_the_way' ? (
+              <TouchableOpacity style={[styles.actionBtn, { flex: 2 }]} onPress={markArrived}>
+                <Ionicons name="location" size={20} color="#000" />
+                <Text style={styles.actionBtnText}>Yetib keldim</Text>
+              </TouchableOpacity>
+            ) : activeRide.status === 'arrived' ? (
+              <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#4CAF50', flex: 2 }]} onPress={startRide}>
+                <Ionicons name="play" size={20} color="#FFF" />
+                <Text style={[styles.actionBtnText, { color: '#FFF' }]}>Boshlash</Text>
+              </TouchableOpacity>
+            ) : activeRide.status === 'started' ? (
+              <TouchableOpacity
+                style={[styles.actionBtn, { backgroundColor: '#E53935', flex: 2 }]}
+                onPress={completeRide}
+              >
+                <Ionicons name="flag" size={20} color="#FFF" />
+                <Text style={[styles.actionBtnText, { color: '#FFF' }]}>Manzilga yetib keldik</Text>
+              </TouchableOpacity>
+            ) : null}
+
+            <TouchableOpacity 
+              style={[styles.actionBtn, { backgroundColor: '#1A0808', borderColor: '#442222', borderWidth: 1, flex: 1.2 }]} 
+              onPress={cancelRide}
             >
-              <Ionicons name="flag" size={20} color="#FFF" />
-              <Text style={[styles.actionBtnText, { color: '#FFF' }]}>Manzilga yetib keldik</Text>
+              <Ionicons name="close-circle" size={20} color="#FF5252" />
+              <Text style={[styles.actionBtnText, { color: '#FF5252', fontSize: 15 }]}>Bekor qilish</Text>
             </TouchableOpacity>
-          ) : null}
+          </View>
+
         </View>
       )}
 
@@ -1229,7 +1267,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3, shadowRadius: 16, elevation: 8,
   },
   actionBtnText: { color: '#000000', fontSize: 18, fontWeight: '800' },
+  actionButtonsRow: { flexDirection: 'row', gap: 12, width: '100%' },
   smallActionBtn: { backgroundColor: '#4CAF50', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, marginRight: 10 },
+
   smallActionBtnText: { color: '#FFF', fontSize: 12, fontWeight: '800' },
 
   // Incoming request modal

@@ -9,8 +9,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
+import { makeRedirectUri } from 'expo-auth-session';
 import { authAPI } from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
+
 
 // OAuth redirect oynasini yopish uchun shart
 WebBrowser.maybeCompleteAuthSession();
@@ -36,8 +38,11 @@ export default function PhoneScreen() {
     androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
     iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    redirectUri: 'https://auth.expo.io/@isa.dev/goldride-taxi',
+    redirectUri: makeRedirectUri({
+      scheme: 'goldride',
+    }),
   });
+
 
   // OAuth javobi kelganda avtomatik ishga tushadi
   useEffect(() => {
