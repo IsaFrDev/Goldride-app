@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, Alert, ScrollView, Image,
+  Modal, ActivityIndicator, FlatList,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +11,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { t } from '../../services/i18n';
 import { authAPI } from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
+
+type TaxiPark = { id: number; name: string; address: string; driver_count: number };
 
 const CAR_MAKES = ['Chevrolet', 'Hyundai', 'Kia', 'Toyota', 'Daewoo', 'BYD', 'Chery', 'Haval', 'Lada', 'Mercedes'];
 const CAR_COLORS = [
@@ -39,6 +42,19 @@ export default function DriverRegisterScreen() {
   const [passport, setPassport] = useState('');
   const [passportPhotoFront, setPassportPhotoFront] = useState<string | null>(null);
   const [passportPhotoBack, setPassportPhotoBack] = useState<string | null>(null);
+
+  // Taksi parki tanlash (ixtiyoriy — bo'sh bo'lsa mustaqil haydovchi)
+  const [taxiParks, setTaxiParks] = useState<TaxiPark[]>([]);
+  const [loadingParks, setLoadingParks] = useState(true);
+  const [selectedPark, setSelectedPark] = useState<TaxiPark | null>(null);
+  const [showParkModal, setShowParkModal] = useState(false);
+
+  useEffect(() => {
+    authAPI.getTaxiParks()
+      .then(res => setTaxiParks(Array.isArray(res.data) ? res.data : []))
+      .catch(() => setTaxiParks([]))
+      .finally(() => setLoadingParks(false));
+  }, []);
 
   // Step 3: License & Face ID
   const [license, setLicense] = useState('');
@@ -141,6 +157,7 @@ export default function DriverRegisterScreen() {
       formData.append('color', color);
       formData.append('plate_number', cleanPlate);
       formData.append('vehicle_type', 'sedan');
+      if (selectedPark) formData.append('taxi_park_id', String(selectedPark.id));
 
       // Helper to append files
       const appendFile = (key: string, uri: string | null, fileName: string) => {
@@ -228,7 +245,27 @@ export default function DriverRegisterScreen() {
                 <TextInput style={[styles.input, { flex: 1 }]} value={lastName} onChangeText={setLastName} placeholder="Familiya" placeholderTextColor="#666" />
             </View>
             <TextInput style={styles.input} value={passport} onChangeText={setPassport} placeholder="Pasport seriya va raqami (AA1234567)" placeholderTextColor="#666" autoCapitalize="characters" />
-            
+
+            <Text style={styles.label}>Taksi parki</Text>
+            <TouchableOpacity style={styles.parkSelect} onPress={() => setShowParkModal(true)}>
+              <Ionicons name="business-outline" size={20} color="#FFB800" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.parkSelectText}>
+                  {selectedPark ? selectedPark.name : 'Mustaqil (parksiz) ishlayman'}
+                </Text>
+                {selectedPark ? (
+                  <Text style={styles.parkSelectHint}>{selectedPark.address || 'Manzil ko\'rsatilmagan'}</Text>
+                ) : (
+                  <Text style={styles.parkSelectHint}>Yoki ro'yxatdan bir taksi parkini tanlang</Text>
+                )}
+              </View>
+              {loadingParks ? (
+                <ActivityIndicator size="small" color="#666" />
+              ) : (
+                <Ionicons name="chevron-down" size={20} color="#666" />
+              )}
+            </TouchableOpacity>
+
             <Text style={styles.label}>Pasport rasmi (Oldi tomoni)</Text>
             <TouchableOpacity style={styles.photoUpload} onPress={() => pickPhoto(setPassportPhotoFront)}>
                 {passportPhotoFront ? <Image source={{ uri: passportPhotoFront }} style={styles.preview} /> : <Ionicons name="camera" size={32} color="#666" />}
@@ -345,6 +382,9 @@ export default function DriverRegisterScreen() {
                 <Ionicons name="information-circle" size={24} color="#FFB800" />
                 <Text style={styles.summaryText}>
                     Barcha ma'lumotlar kiritildi. "Tugatish" tugmasini bosganingizdan so'ng ma'lumotlar moderatorga yuboriladi.
+                    {selectedPark
+                      ? ` Siz "${selectedPark.name}" taksi parkiga qo'shilasiz.`
+                      : ' Siz mustaqil (parksiz) haydovchi sifatida ishlaysiz.'}
                 </Text>
             </View>
           </View>
@@ -378,6 +418,54 @@ export default function DriverRegisterScreen() {
             {!loading && <Ionicons name="chevron-forward" size={20} color="#000" />}
         </TouchableOpacity>
       </View>
+
+      {/* Taksi parki tanlash modali */}
+      <Modal visible={showParkModal} transparent animationType="slide" onRequestClose={() => setShowParkModal(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowParkModal(false)}>
+          <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 20) + 20 }]} onStartShouldSetResponder={() => true}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Taksi parkini tanlang</Text>
+            <Text style={styles.modalSubtitle}>Parkka a'zo bo'lsangiz bonuslar va qo'llab-quvvatlash olasiz, yoki mustaqil ishlashni davom ettiring.</Text>
+
+            <FlatList
+              data={taxiParks}
+              keyExtractor={item => String(item.id)}
+              style={{ maxHeight: 340 }}
+              ListHeaderComponent={
+                <TouchableOpacity
+                  style={[styles.parkOption, !selectedPark && styles.parkOptionActive]}
+                  onPress={() => { setSelectedPark(null); setShowParkModal(false); }}
+                >
+                  <Ionicons name="person-outline" size={20} color={!selectedPark ? '#FFB800' : '#666'} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.parkOptionTitle, !selectedPark && styles.parkOptionTitleActive]}>Mustaqil (parksiz)</Text>
+                    <Text style={styles.parkOptionSub}>O'zingiz mustaqil haydovchi sifatida ishlaysiz</Text>
+                  </View>
+                  {!selectedPark && <Ionicons name="checkmark-circle" size={20} color="#FFB800" />}
+                </TouchableOpacity>
+              }
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[styles.parkOption, selectedPark?.id === item.id && styles.parkOptionActive]}
+                  onPress={() => { setSelectedPark(item); setShowParkModal(false); }}
+                >
+                  <Ionicons name="business-outline" size={20} color={selectedPark?.id === item.id ? '#FFB800' : '#666'} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.parkOptionTitle, selectedPark?.id === item.id && styles.parkOptionTitleActive]}>{item.name}</Text>
+                    <Text style={styles.parkOptionSub}>{item.address || "Manzil ko'rsatilmagan"} · {item.driver_count} haydovchi</Text>
+                  </View>
+                  {selectedPark?.id === item.id && <Ionicons name="checkmark-circle" size={20} color="#FFB800" />}
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={
+                !loadingParks ? (
+                  <Text style={styles.parkEmptyText}>Hozircha tasdiqlangan taksi parklari yo'q</Text>
+                ) : null
+              }
+            />
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -542,6 +630,96 @@ const styles = StyleSheet.create({
     color: '#000',
     fontSize: 18,
     fontWeight: '700',
+  },
+  parkSelect: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  parkSelectText: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  parkSelectHint: {
+    color: '#777',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#121212',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: '#1E1E1E',
+    borderBottomWidth: 0,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#333',
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#FFF',
+    marginBottom: 6,
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    color: '#94A3B8',
+    marginBottom: 20,
+    fontWeight: '500',
+    lineHeight: 18,
+  },
+  parkOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#1A1A1A',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1.5,
+    borderColor: '#262626',
+  },
+  parkOptionActive: {
+    borderColor: '#FFB800',
+    backgroundColor: '#2D260D',
+  },
+  parkOptionTitle: {
+    color: '#DDD',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  parkOptionTitleActive: {
+    color: '#FFF',
+  },
+  parkOptionSub: {
+    color: '#666',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  parkEmptyText: {
+    color: '#555',
+    fontSize: 13,
+    textAlign: 'center',
+    paddingVertical: 20,
   },
 });
 

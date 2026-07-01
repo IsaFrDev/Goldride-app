@@ -9,24 +9,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
-import { makeRedirectUri } from 'expo-auth-session';
-import Constants from 'expo-constants';
 import { authAPI } from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
 
-
-
-// OAuth redirect oynasini yopish uchun shart
+// OAuth redirect oynasini yopish uchun — bu SHART, olib tashlash mumkin emas
 WebBrowser.maybeCompleteAuthSession();
 
 export default function PhoneScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { login, referralCode, onboardingRole, setOnboardingRole } = useAuthStore();
-  
+
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
-  
+
   // Ro'yxatdan o'tish holati (Yangi foydalanuvchilar uchun)
   const [isRegistering, setIsRegistering] = useState(false);
   const [regEmail, setRegEmail] = useState('');
@@ -35,16 +31,14 @@ export default function PhoneScreen() {
   const [regPhone, setRegPhone] = useState('');
   const [googleIdToken, setGoogleIdToken] = useState<string | null>(null);
 
-  const isExpoGo = Constants.appOwnership === 'expo';
-
-  // expo-auth-session Google provider — PKCE flow, to'g'ri redirect bilan
+  // expo-auth-session v7: redirectUri BERILMAYDI — library o'zi avtomatik aniqlaydi:
+  //   • Expo Go da: https://auth.expo.io/@isa.dev/goldride-taxi
+  //   • Built app da: reverse client ID (native OAuth)
+  // Bu URI Google Cloud Console da "Authorized redirect URIs" ga qo'shilishi kerak.
   const [request, response, promptAsync] = Google.useAuthRequest({
     androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
     iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    redirectUri: isExpoGo 
-      ? 'https://auth.expo.io/@isa.dev/goldride-taxi' 
-      : makeRedirectUri({ scheme: 'goldride' }),
   });
 
 
@@ -107,14 +101,33 @@ export default function PhoneScreen() {
     }
   };
 
-  // Google AccessToken orqali profil ma'lumotlarini olish
+  // accessToken bilan Google userinfo endpoint dan ma'lumot olish
+  // (idToken bo'lmagan hollarda fallback)
   const fetchGoogleUserInfoAndLogin = async (accessToken: string) => {
     try {
       const userInfoRes = await fetch('https://www.googleapis.com/userinfo/v2/me', {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (!userInfoRes.ok) throw new Error('UserInfo xatosi');
-      await sendGoogleTokenToBackend(accessToken);
+      const userInfo = await userInfoRes.json();
+      // Backend Firebase id_token kutadi — accessToken ishlamaydi.
+      // Google tokeninfo orqali id_token olamiz
+      const tokenRes = await fetch(
+        `https://oauth2.googleapis.com/tokeninfo?access_token=${accessToken}`
+      );
+      const tokenInfo = await tokenRes.json();
+      if (tokenInfo.error) {
+        Alert.alert('Xato', 'Google tokenini tekshirishda muammo.');
+        setLoading(false);
+        return;
+      }
+      // id_token ni tokeninfo javobidan olib backendga yuboramiz
+      if (tokenInfo.id_token) {
+        await sendGoogleTokenToBackend(tokenInfo.id_token);
+      } else {
+        // Fallback: email bilan kirish
+        await handleEmailLogin(userInfo.email);
+      }
     } catch {
       Alert.alert('Xato', "Google foydalanuvchi ma'lumotlarini olishda xato.");
       setLoading(false);
@@ -162,7 +175,9 @@ export default function PhoneScreen() {
 
   const handleGooglePress = async () => {
     setLoading(true);
-    await promptAsync({ useProxy: isExpoGo });
+    // v7 da promptAsync() ga hech qanday option berilmaydi
+    // useProxy parametri expo-auth-session v5+ dan olib tashlangan
+    await promptAsync();
   };
 
   // Ro'yxatdan o'tishni yakunlash (Finish registration)

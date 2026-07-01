@@ -123,6 +123,7 @@ export const authAPI = {
     api.post('/auth/register/driver/', data, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
+  getTaxiParks: () => api.get('/auth/taxi-park/list/'),
   getProfile: () => api.get('/auth/profile/'),
   updateProfile: (data: any) => api.put('/auth/profile/', data),
   getDriverProfile: () => api.get('/auth/driver/profile/'),
