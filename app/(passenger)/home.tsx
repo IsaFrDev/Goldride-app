@@ -31,6 +31,42 @@ const CarIcon = ({ color = "#FFB800" }) => (
   </View>
 );
 
+// Ba'zi qurilmalarda Android'ning tizim ichidagi Geocoder xizmati mavjud
+// emas ("UNAVAILABLE" xatosi beradi — Google Play Services yoki tarmoq bilan
+// bog'liq). Bunday holatda ochiq OpenStreetMap Nominatim xizmatiga o'tamiz.
+async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
+  try {
+    const reverse = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+    const r = reverse?.[0];
+    if (r) {
+      const name = r.name && !r.name.includes('+') ? r.name : null;
+      const district = r.district || r.subregion;
+      const address = [name || r.street, district].filter(Boolean).join(', ');
+      if (address) return address;
+    }
+  } catch (e) {
+    console.log('Native reverse geocode mavjud emas, Nominatim orqali urinib ko\'ramiz:', e);
+  }
+
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&accept-language=uz`,
+      { headers: { 'User-Agent': 'GoldrideTaxiApp/1.0 (dev@goldride.uz)' } }
+    );
+    const data = await res.json();
+    const a = data?.address;
+    const name = a?.road || a?.suburb || a?.neighbourhood || a?.amenity;
+    const district = a?.city_district || a?.district || a?.city || a?.town;
+    const address = [name, district].filter(Boolean).join(', ');
+    if (address) return address;
+    if (data?.display_name) return data.display_name.split(',').slice(0, 2).join(',').trim();
+  } catch (e) {
+    console.log('Nominatim reverse geocode ham ishlamadi:', e);
+  }
+
+  return null;
+}
+
 // Helper for rotation
 function getBearing(lat1: number, lng1: number, lat2: number, lng2: number) {
   const dLon = (lng2 - lng1) * (Math.PI / 180);
@@ -154,28 +190,14 @@ export default function PassengerHomeScreen() {
         });
 
         // Try to get address
-        try {
-          const reverse = await Location.reverseGeocodeAsync({
-            latitude: loc.coords.latitude,
-            longitude: loc.coords.longitude
+        const address = await reverseGeocode(loc.coords.latitude, loc.coords.longitude);
+        if (address) {
+          setPickupAddress(address);
+          ride.setPickup({
+            lat: loc.coords.latitude,
+            lng: loc.coords.longitude,
+            address: address
           });
-          if (reverse && reverse.length > 0) {
-            const r = reverse[0];
-            // Filter out Plus Codes (contain '+')
-            let name = r.name && !r.name.includes('+') ? r.name : null;
-            let street = r.street;
-            let district = r.district || r.subregion;
-            
-            const address = [name || street, district].filter(Boolean).join(', ') || 'Hozirgi joyingiz';
-            setPickupAddress(address);
-            ride.setPickup({
-              lat: loc.coords.latitude,
-              lng: loc.coords.longitude,
-              address: address
-            });
-          }
-        } catch (geoErr) {
-          console.log('Reverse geocode failed:', geoErr);
         }
       } catch (error) {
         console.log('Passenger location fetch failed:', error);
@@ -600,23 +622,10 @@ export default function PassengerHomeScreen() {
     // We allow moving the pickup pin in both idle and confirm_pickup modes
     if (uiStep === 'idle' || uiStep === 'confirm_pickup') {
       setIsMapMoving(false);
-      try {
-        const reverse = await Location.reverseGeocodeAsync({ latitude: region.latitude, longitude: region.longitude });
-        const r = reverse?.[0];
-        let addr = 'Tanlangan joy';
-        if (r) {
-          let name = r.name && !r.name.includes('+') ? r.name : null;
-          let street = r.street;
-          let district = r.district || r.subregion;
-          addr = [name || street, district].filter(Boolean).join(', ') || 'Tanlangan joy';
-        }
-        setPickupAddress(addr);
-        ride.setPickup({ lat: region.latitude, lng: region.longitude, address: addr });
-      } catch (e) {
-        console.error('Reverse Geocode error:', e);
-        // Fallback: set coordinates even if address fetch fails
-        ride.setPickup({ lat: region.latitude, lng: region.longitude, address: 'Karta orqali tanlangan joy' });
-      }
+      const address = await reverseGeocode(region.latitude, region.longitude);
+      const addr = address || 'Karta orqali tanlangan joy';
+      setPickupAddress(addr);
+      ride.setPickup({ lat: region.latitude, lng: region.longitude, address: addr });
     }
   };
 

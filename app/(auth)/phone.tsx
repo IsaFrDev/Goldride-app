@@ -9,11 +9,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { authAPI } from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
 
 // OAuth redirect oynasini yopish uchun — bu SHART, olib tashlash mumkin emas
 WebBrowser.maybeCompleteAuthSession();
+
+// Expo Go ichida ishlayaptimi? Google endi Expo Go'ning "exp://" redirect'ini
+// xavfsizlik siyosati bo'yicha rad etadi (auth.expo.io proxy Expo tomonidan
+// butunlay o'chirilgan). Bu holatda Google tugmasi tushunarli xabar beradi —
+// haqiqiy login uchun development build kerak (pastdagi izohga qarang).
+const IS_EXPO_GO = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 export default function PhoneScreen() {
   const router = useRouter();
@@ -31,10 +38,14 @@ export default function PhoneScreen() {
   const [regPhone, setRegPhone] = useState('');
   const [googleIdToken, setGoogleIdToken] = useState<string | null>(null);
 
-  // expo-auth-session v7: redirectUri BERILMAYDI — library o'zi avtomatik aniqlaydi:
-  //   • Expo Go da: https://auth.expo.io/@isa.dev/goldride-taxi
-  //   • Built app da: reverse client ID (native OAuth)
-  // Bu URI Google Cloud Console da "Authorized redirect URIs" ga qo'shilishi kerak.
+  // expo-auth-session v7: Expo "auth.expo.io" proksi xizmatini butunlay
+  // o'chirgan, shuning uchun Expo Go'da bu hook endi haqiqiy "exp://<ip>:<port>"
+  // manzilini redirect sifatida ishlatadi. Google bunday custom-scheme
+  // redirect'ni "Web application" turidagi client uchun siyosat bo'yicha rad
+  // etadi (xato: "doesn't comply with Google's OAuth 2.0 policy"). Bu Google
+  // Console sozlamalari bilan tuzatib bo'lmaydigan holat — Google Sign-In
+  // Expo Go ichida ishlamaydi, faqat development/production build'da ishlaydi
+  // (pastdagi IS_EXPO_GO tekshiruviga qarang).
   const [request, response, promptAsync] = Google.useAuthRequest({
     androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
     iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
@@ -174,6 +185,14 @@ export default function PhoneScreen() {
   };
 
   const handleGooglePress = async () => {
+    if (IS_EXPO_GO) {
+      Alert.alert(
+        'Google orqali kirish mavjud emas',
+        "Expo Go ilovasida Google orqali kirish ishlamaydi — buni Google va Expo tomonidan qo'yilgan cheklov (Expo'ning eski proksi xizmati o'chirilgan). Iltimos, quyidagilardan birini tanlang:\n\n• Hozircha email orqali kiring\n• Yoki development build o'rnating (npx expo run:android / eas build --profile development)",
+        [{ text: 'Tushunarli' }]
+      );
+      return;
+    }
     setLoading(true);
     // v7 da promptAsync() ga hech qanday option berilmaydi
     // useProxy parametri expo-auth-session v5+ dan olib tashlangan
