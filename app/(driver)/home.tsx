@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Switch, Alert,
   Dimensions, Animated, ActivityIndicator, Image as RNImage,
-  Modal,
+  Modal, AppState,
 } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import Svg, { Rect, G, Path } from 'react-native-svg';
 import MapView, { Marker, Polyline, Circle } from '../../components/MapComponents';
 import * as Location from 'expo-location';
@@ -177,6 +178,45 @@ export default function DriverHomeScreen() {
       }
     })();
   }, [isAuthenticated]);
+
+  // Loop sound control based on incomingRequest state
+  useEffect(() => {
+    if (!incomingRequest) {
+      soundService.stopNewOrder();
+    }
+    return () => {
+      soundService.stopNewOrder();
+    };
+  }, [incomingRequest]);
+
+  // Handle Notifications Setup & AppState listener for background status
+  useEffect(() => {
+    // Request permission & setup notification handler
+    Notifications.requestPermissionsAsync();
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+      }),
+    });
+
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'background' && isOnline) {
+        Notifications.scheduleNotificationAsync({
+          content: {
+            title: 'Siz hali ham onlaynsiz!',
+            body: 'Siz hali ham liniyadasiz, yangi buyurtmalarni qabul qilishingiz mumkin.',
+          },
+          trigger: null,
+        });
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [isOnline]);
 
   // Listen for socket events
   useEffect(() => {

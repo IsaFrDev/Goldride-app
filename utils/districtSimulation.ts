@@ -6,6 +6,15 @@ export interface VirtualDriver {
   current_lng: number;
   is_virtual: boolean;
   angle: number; // for movement simulation
+  name: string;
+  phone: string;
+  rating: number;
+  vehicle: {
+    make: string;
+    model: string;
+    color: string;
+    plate_number: string;
+  };
 }
 
 const TASHKENT_DISTRICTS = [
@@ -17,17 +26,46 @@ const TASHKENT_DISTRICTS = [
   { name: 'Uchtepa', lat: 41.2950, lng: 69.1754 },
 ];
 
+const UZ_NAMES = ["Jasur", "Sardor", "Otabek", "Farhod", "Dilshod", "Bekzod", "Rustam", "Shavkat", "Anvar", "Ulug'bek", "Alijon", "Valijon", "Jahongir", "Shoxrux", "Bobur"];
+const UZ_SURNAMES = ["Abduvaliyev", "Karimov", "Tursunov", "Rahimov", "Solihiy", "Usmonov", "Aliyev", "Mahmudov", "Toshmatov", "Yusupov", "Nazarov", "Xalilov"];
+const CAR_MODELS = [
+  { make: 'Chevrolet', model: 'Cobalt', color: 'Oq' },
+  { make: 'Chevrolet', model: 'Gentra', color: 'Qora' },
+  { make: 'Chevrolet', model: 'Gentra', color: 'Oq' },
+  { make: 'Chevrolet', model: 'Nexia 3', color: 'To\'q kulrang' },
+  { make: 'Chevrolet', model: 'Lacetti', color: 'Kumushrang' },
+  { make: 'BYD', model: 'Song Plus', color: 'To\'q ko\'k' },
+  { make: 'BYD', model: 'Chazor', color: 'Oq' },
+];
+
 /**
  * Generates an initial set of virtual drivers
  */
 export const generateVirtualDrivers = (): VirtualDriver[] => {
-  return TASHKENT_DISTRICTS.map((district, index) => ({
-    id: `virtual_${index}`,
-    current_lat: district.lat + (Math.random() - 0.5) * 0.005,
-    current_lng: district.lng + (Math.random() - 0.5) * 0.005,
-    is_virtual: true,
-    angle: Math.random() * Math.PI * 2,
-  }));
+  return TASHKENT_DISTRICTS.map((district, index) => {
+    const name = `${UZ_NAMES[index % UZ_NAMES.length]} ${UZ_SURNAMES[index % UZ_SURNAMES.length]}`;
+    const phone = `+99890${Math.floor(1000000 + Math.random() * 9000000)}`;
+    const rating = parseFloat((4.5 + Math.random() * 0.5).toFixed(1));
+    const car = CAR_MODELS[index % CAR_MODELS.length];
+    const plate = `01 ${Math.floor(100 + Math.random() * 900)} ${String.fromCharCode(65 + (index % 26))}${String.fromCharCode(65 + ((index + 1) % 26))}${String.fromCharCode(65 + ((index + 2) % 26))}`.toUpperCase();
+    
+    return {
+      id: `virtual_${index}`,
+      current_lat: district.lat + (Math.random() - 0.5) * 0.005,
+      current_lng: district.lng + (Math.random() - 0.5) * 0.005,
+      is_virtual: true,
+      angle: Math.random() * Math.PI * 2,
+      name,
+      phone,
+      rating,
+      vehicle: {
+        make: car.make,
+        model: car.model,
+        color: car.color,
+        plate_number: plate
+      }
+    };
+  });
 };
 
 /**
@@ -84,6 +122,10 @@ export const balanceDrivers = (realDrivers: any[], virtualDrivers: VirtualDriver
         current_lat: vd.current_lat,
         current_lng: vd.current_lng,
         is_virtual: true,
+        name: vd.name,
+        phone: vd.phone,
+        rating: vd.rating,
+        vehicle: vd.vehicle,
       });
     }
   });

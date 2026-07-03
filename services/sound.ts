@@ -22,12 +22,24 @@ class SoundService {
       }
       const { sound } = await Audio.Sound.createAsync(
         require('../assets/new_order.mp3'),
-        { volume: 1.0, shouldDuckOtherApps: true }
+        { volume: 1.0, shouldDuckOtherApps: true, isLooping: true }
       );
       this.newOrderSound = sound;
       await sound.playAsync();
     } catch (e) {
       console.log('Error playing new order sound:', e);
+    }
+  }
+
+  async stopNewOrder() {
+    try {
+      if (this.newOrderSound) {
+        await this.newOrderSound.stopAsync();
+        await this.newOrderSound.unloadAsync();
+        this.newOrderSound = null;
+      }
+    } catch (e) {
+      console.log('Error stopping new order sound:', e);
     }
   }
 
