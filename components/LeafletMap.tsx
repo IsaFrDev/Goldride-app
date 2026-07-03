@@ -316,13 +316,25 @@ const buildHtml = (lat: number, lng: number) => `
 </html>
 `;
 
-const LeafletMap = forwardRef(({
+export interface LeafletMapRef {
+  animateToRegion: (region: any) => void;
+  fitToCoordinates: (coords: any[]) => void;
+  updateDrivers: (drivers: Array<{id: string|number, lat: number, lng: number, rotation?: number, isActive?: boolean}>) => void;
+  updateUserLocation: (lat: number, lng: number) => void;
+  setRoute: (coords: Array<{latitude: number, longitude: number}>) => void;
+  clearRoute: () => void;
+  setDestination: (lat: number, lng: number) => void;
+  clearDestination: () => void;
+  clearAllDrivers: () => void;
+}
+
+const LeafletMap = forwardRef<LeafletMapRef, LeafletMapProps>(({
   initialRegion,
   showsUserLocation,
   onRegionChangeComplete,
   style,
   children
-}: LeafletMapProps, ref) => {
+}, ref) => {
   const webViewRef = useRef<WebView>(null);
 
   const inject = useCallback((js: string) => {
