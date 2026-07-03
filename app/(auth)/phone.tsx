@@ -17,7 +17,8 @@ export default function PhoneScreen() {
   const { referralCode } = useAuthStore();
 
   const [loading, setLoading] = useState(false);
-  const [phone, setPhone] = useState('');
+  const [displayPhone, setDisplayPhone] = useState(''); // E.g. "90 123 45 67"
+  const [rawPhone, setRawPhone] = useState(''); // E.g. "901234567"
   const [ipAddress, setIpAddress] = useState<string>('Unknown');
   const [showRecaptcha, setShowRecaptcha] = useState(false);
   const [isRobotVerified, setIsRobotVerified] = useState(false);
@@ -35,14 +36,37 @@ export default function PhoneScreen() {
     getIP();
   }, []);
 
+  const handlePhoneChange = (text: string) => {
+    // Keep only digits
+    const digits = text.replace(/\D/g, '');
+    if (digits.length > 9) return;
+
+    setRawPhone(digits);
+
+    // Format: XX XXX XX XX
+    let formatted = '';
+    if (digits.length > 0) {
+      formatted += digits.substring(0, 2);
+    }
+    if (digits.length > 2) {
+      formatted += ' ' + digits.substring(2, 5);
+    }
+    if (digits.length > 5) {
+      formatted += ' ' + digits.substring(5, 7);
+    }
+    if (digits.length > 7) {
+      formatted += ' ' + digits.substring(7, 9);
+    }
+    setDisplayPhone(formatted);
+  };
+
   const handlePhoneAuth = async () => {
-    // Validate phone number format (e.g. +998901234567 or similar)
-    const formattedPhone = phone.trim();
-    if (!formattedPhone || formattedPhone.length < 9) {
-      Alert.alert('Xato', 'Iltimos, to\'g\'ri telefon raqamini kiriting.');
+    if (rawPhone.length !== 9) {
+      Alert.alert('Xato', 'Iltimos, telefon raqamingizni to\'liq (9 ta raqam) kiriting.');
       return;
     }
 
+    const fullPhone = `+998${rawPhone}`;
     setLoading(true);
     try {
       // Check if Telegram app is installed
@@ -61,7 +85,7 @@ export default function PhoneScreen() {
       }
 
       // If Telegram is installed, send via Telegram
-      await proceedSendOTP(formattedPhone, 'telegram');
+      await proceedSendOTP(fullPhone, 'telegram');
     } catch (err: any) {
       Alert.alert('Xato', err?.response?.data?.detail || 'OTP yuborishda xatolik yuz berdi.');
       setLoading(false);
@@ -96,7 +120,8 @@ export default function PhoneScreen() {
     // Simulate a slight delay for verification check
     setTimeout(async () => {
       const mockToken = 'mock-recaptcha-token-123456';
-      await proceedSendOTP(phone.trim(), 'recaptcha', mockToken);
+      const fullPhone = `+998${rawPhone}`;
+      await proceedSendOTP(fullPhone, 'recaptcha', mockToken);
     }, 1500);
   };
 
@@ -133,21 +158,22 @@ export default function PhoneScreen() {
           {/* Telefon kiritish inputi */}
           <View style={styles.inputContainer}>
             <Ionicons name="call-outline" size={20} color="#666" style={styles.inputIcon} />
+            <Text style={styles.countryCode}>+998</Text>
             <TextInput
               style={styles.textInput}
-              placeholder="Telefon raqamingiz (+998XXXXXXXXX)"
+              placeholder="90 123 45 67"
               placeholderTextColor="#666"
               keyboardType="phone-pad"
               autoCapitalize="none"
-              value={phone}
-              onChangeText={setPhone}
+              value={displayPhone}
+              onChangeText={handlePhoneChange}
             />
           </View>
 
           <TouchableOpacity
-            style={[styles.submitBtn, (!phone.trim() || loading) && styles.buttonDisabled]}
+            style={[styles.submitBtn, (rawPhone.length !== 9 || loading) && styles.buttonDisabled]}
             onPress={handlePhoneAuth}
-            disabled={!phone.trim() || loading}
+            disabled={rawPhone.length !== 9 || loading}
           >
             {loading ? (
               <ActivityIndicator color="#000" size="small" />
@@ -215,7 +241,7 @@ export default function PhoneScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#00',
+    backgroundColor: '#000',
   },
   header: {
     paddingHorizontal: 24,
@@ -272,6 +298,12 @@ const styles = StyleSheet.create({
   },
   inputIcon: {
     marginRight: 12,
+  },
+  countryCode: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '700',
+    marginRight: 8,
   },
   textInput: {
     flex: 1,
