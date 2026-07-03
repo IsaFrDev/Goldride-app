@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import * as Network from 'expo-network';
 import { t } from '../../services/i18n';
 import { authAPI } from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
@@ -32,6 +33,7 @@ export default function DriverRegisterScreen() {
   const { setUser } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(1); // 1 to 6
+  const [ipAddress, setIpAddress] = useState<string>('Unknown');
 
   // Step 1: Agreement
   const [hasAgreed, setHasAgreed] = useState(false);
@@ -50,6 +52,16 @@ export default function DriverRegisterScreen() {
   const [showParkModal, setShowParkModal] = useState(false);
 
   useEffect(() => {
+    async function getIP() {
+      try {
+        const ip = await Network.getIpAddressAsync();
+        setIpAddress(ip);
+      } catch (err) {
+        console.warn('Failed to retrieve IP Address in DriverRegister:', err);
+      }
+    }
+    getIP();
+
     authAPI.getTaxiParks()
       .then(res => setTaxiParks(Array.isArray(res.data) ? res.data : []))
       .catch(() => setTaxiParks([]))
@@ -144,7 +156,8 @@ export default function DriverRegisterScreen() {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         role: 'driver',
-        has_agreed_to_terms: true
+        has_agreed_to_terms: true,
+        ip_address: ipAddress
       });
 
       // 2. Prepare Form Data
@@ -157,6 +170,7 @@ export default function DriverRegisterScreen() {
       formData.append('color', color);
       formData.append('plate_number', cleanPlate);
       formData.append('vehicle_type', 'sedan');
+      formData.append('ip_address', ipAddress);
       if (selectedPark) formData.append('taxi_park_id', String(selectedPark.id));
 
       // Helper to append files

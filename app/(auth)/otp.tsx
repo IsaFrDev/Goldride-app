@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  KeyboardAvoidingView, Platform, Alert, ScrollView,
+  KeyboardAvoidingView, Platform, Alert, ScrollView, Linking
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Network from 'expo-network';
 import { t } from '../../services/i18n';
 import { authAPI } from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
@@ -19,9 +20,20 @@ export default function OTPScreen() {
   const [otp, setOtp] = useState(['', '', '', '']);
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(60);
+  const [ipAddress, setIpAddress] = useState<string>('Unknown');
   const inputs = useRef<(TextInput | null)[]>([]);
 
   useEffect(() => {
+    async function getIP() {
+      try {
+        const ip = await Network.getIpAddressAsync();
+        setIpAddress(ip);
+      } catch (err) {
+        console.warn('Failed to retrieve IP Address in OTP:', err);
+      }
+    }
+    getIP();
+
     inputs.current[0]?.focus();
     const timer = setInterval(() => {
       setCountdown((prev) => (prev > 0 ? prev - 1 : 0));
@@ -56,7 +68,7 @@ export default function OTPScreen() {
   const verifyOTP = async (code: string) => {
     setLoading(true);
     try {
-      const response = await authAPI.verifyOTP(identifier!, code, type, phone, referralCode || undefined);
+      const response = await authAPI.verifyOTP(identifier!, code, type, phone, referralCode || undefined, ipAddress);
       const { access, refresh, user, is_new_user, status } = response.data;
 
       if (status === 'partial') {
@@ -104,9 +116,20 @@ export default function OTPScreen() {
   const resendOTP = async () => {
     if (countdown > 0) return;
     try {
+      let hasTelegram = false;
+      try {
+        hasTelegram = await Linking.canOpenURL('tg://');
+      } catch (_) {
+        hasTelegram = false;
+      }
+      const method = hasTelegram ? 'telegram' : 'recaptcha';
+      const mockToken = hasTelegram ? undefined : 'mock-recaptcha-token-123456';
+      
       await authAPI.sendOTP(
-          type === 'phone' ? identifier : '', 
-          type === 'email' ? identifier : ''
+          phone || identifier!,
+          method,
+          mockToken,
+          ipAddress
       );
       setCountdown(60);
     } catch (error: any) {

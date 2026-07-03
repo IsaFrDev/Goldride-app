@@ -113,10 +113,11 @@ api.interceptors.response.use(
 export const authAPI = {
   // Google (Firebase) — yagona kirish usuli
   // phone majburiy yangi foydalanuvchilar uchun
-  googleAuth: (idToken: string, phone?: string, referralCode?: string) =>
-    api.post('/auth/auth/google/', { id_token: idToken, phone, referral_code: referralCode }),
-  emailAuth: (email: string, phone?: string, referralCode?: string) =>
-    api.post('/auth/auth/email/', { email, phone, referral_code: referralCode }),
+  sendOTP: (phone: string, method: 'telegram' | 'recaptcha', recaptchaToken?: string, ipAddress?: string) =>
+    api.post('/auth/send-otp/', { phone, method, recaptcha_token: recaptchaToken, ip_address: ipAddress }),
+  
+  verifyOTP: (identifier: string, code: string, type: 'phone' | 'email', phone?: string, referralCode?: string, ipAddress?: string) =>
+    api.post('/auth/verify-otp/', { identifier, code, type, phone, referral_code: referralCode, ip_address: ipAddress }),
 
   register: (data: any) => api.post('/auth/register/', data),
   registerDriver: (data: FormData) =>

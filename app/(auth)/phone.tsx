@@ -2,222 +2,102 @@ import { useEffect, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, Alert, Image, ScrollView,
-  ActivityIndicator, TextInput,
+  ActivityIndicator, TextInput, Modal, Linking
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
-import Constants, { ExecutionEnvironment } from 'expo-constants';
+import * as Network from 'expo-network';
 import { authAPI } from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
-
-// OAuth redirect oynasini yopish uchun — bu SHART, olib tashlash mumkin emas
-WebBrowser.maybeCompleteAuthSession();
-
-// Expo Go ichida ishlayaptimi? Google endi Expo Go'ning "exp://" redirect'ini
-// xavfsizlik siyosati bo'yicha rad etadi (auth.expo.io proxy Expo tomonidan
-// butunlay o'chirilgan). Bu holatda Google tugmasi tushunarli xabar beradi —
-// haqiqiy login uchun development build kerak (pastdagi izohga qarang).
-const IS_EXPO_GO = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 export default function PhoneScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { login, referralCode, onboardingRole, setOnboardingRole } = useAuthStore();
+  const { referralCode } = useAuthStore();
 
   const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [ipAddress, setIpAddress] = useState<string>('Unknown');
+  const [showRecaptcha, setShowRecaptcha] = useState(false);
+  const [isRobotVerified, setIsRobotVerified] = useState(false);
 
-  // Ro'yxatdan o'tish holati (Yangi foydalanuvchilar uchun)
-  const [isRegistering, setIsRegistering] = useState(false);
-  const [regEmail, setRegEmail] = useState('');
-  const [regFirstName, setRegFirstName] = useState('');
-  const [regLastName, setRegLastName] = useState('');
-  const [regPhone, setRegPhone] = useState('');
-  const [googleIdToken, setGoogleIdToken] = useState<string | null>(null);
-
-  // expo-auth-session v7: Expo "auth.expo.io" proksi xizmatini butunlay
-  // o'chirgan, shuning uchun Expo Go'da bu hook endi haqiqiy "exp://<ip>:<port>"
-  // manzilini redirect sifatida ishlatadi. Google bunday custom-scheme
-  // redirect'ni "Web application" turidagi client uchun siyosat bo'yicha rad
-  // etadi (xato: "doesn't comply with Google's OAuth 2.0 policy"). Bu Google
-  // Console sozlamalari bilan tuzatib bo'lmaydigan holat — Google Sign-In
-  // Expo Go ichida ishlamaydi, faqat development/production build'da ishlaydi
-  // (pastdagi IS_EXPO_GO tekshiruviga qarang).
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-  });
-
-
-  // OAuth javobi kelganda avtomatik ishga tushadi
+  // Fetch device IP Address on load
   useEffect(() => {
-    if (!response) return;
-
-    if (response.type === 'success') {
-      const idToken = response.authentication?.idToken;
-      const accessToken = response.authentication?.accessToken;
-
-      if (idToken) {
-        sendGoogleTokenToBackend(idToken);
-      } else if (accessToken) {
-        fetchGoogleUserInfoAndLogin(accessToken);
-      } else {
-        Alert.alert('Xato', 'Google tokenini olishda muammo yuz berdi.');
-        setLoading(false);
+    async function getIP() {
+      try {
+        const ip = await Network.getIpAddressAsync();
+        setIpAddress(ip);
+      } catch (err) {
+        console.warn('Failed to retrieve IP Address:', err);
       }
-    } else if (response.type === 'error') {
-      Alert.alert('Xato', response.error?.message || 'Google login xatosi yuz berdi.');
-      setLoading(false);
-    } else if (response.type === 'dismiss') {
-      setLoading(false);
     }
-  }, [response]);
+    getIP();
+  }, []);
 
-  // Google orqali backendga yuborish
-  const sendGoogleTokenToBackend = async (idToken: string, phoneVal?: string) => {
-    try {
-      setLoading(true);
-      const res = await authAPI.googleAuth(idToken, phoneVal, referralCode || undefined);
-      const { access, refresh, user } = res.data;
-      await login(access, refresh, user);
-      
-      // Agar yangi foydalanuvchi bo'lsa yoki roli tanlanmagan bo'lsa role-select ga o'tadi
-      if (!user.first_name || onboardingRole === 'driver') {
-        router.replace({
-          pathname: '/(auth)/role-select',
-          params: { force_role: onboardingRole || undefined }
-        });
-        setOnboardingRole(null);
-      } else {
-        router.replace(user.role === 'driver' ? '/(driver)/home' : '/(passenger)/home');
-      }
-    } catch (err: any) {
-      const data = err?.response?.data;
-      if (data?.email && !phoneVal) {
-        // Yangi foydalanuvchi — Telefon raqamini kiritish oynasini ochamiz
-        setRegEmail(data.email);
-        setRegFirstName(data.first_name || '');
-        setRegLastName(data.last_name || '');
-        setGoogleIdToken(idToken);
-        setIsRegistering(true);
-      } else {
-        Alert.alert('Xato', data?.detail || 'Tizimga kirishda xatolik yuz berdi.');
-      }
-    } finally {
-      setLoading(false);
+  const handlePhoneAuth = async () => {
+    // Validate phone number format (e.g. +998901234567 or similar)
+    const formattedPhone = phone.trim();
+    if (!formattedPhone || formattedPhone.length < 9) {
+      Alert.alert('Xato', 'Iltimos, to\'g\'ri telefon raqamini kiriting.');
+      return;
     }
-  };
 
-  // accessToken bilan Google userinfo endpoint dan ma'lumot olish
-  // (idToken bo'lmagan hollarda fallback)
-  const fetchGoogleUserInfoAndLogin = async (accessToken: string) => {
+    setLoading(true);
     try {
-      const userInfoRes = await fetch('https://www.googleapis.com/userinfo/v2/me', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (!userInfoRes.ok) throw new Error('UserInfo xatosi');
-      const userInfo = await userInfoRes.json();
-      // Backend Firebase id_token kutadi — accessToken ishlamaydi.
-      // Google tokeninfo orqali id_token olamiz
-      const tokenRes = await fetch(
-        `https://oauth2.googleapis.com/tokeninfo?access_token=${accessToken}`
-      );
-      const tokenInfo = await tokenRes.json();
-      if (tokenInfo.error) {
-        Alert.alert('Xato', 'Google tokenini tekshirishda muammo.');
+      // Check if Telegram app is installed
+      let hasTelegram = false;
+      try {
+        hasTelegram = await Linking.canOpenURL('tg://');
+      } catch (_) {
+        hasTelegram = false;
+      }
+
+      if (!hasTelegram) {
+        // If Telegram is not installed, prompt ReCaptcha Verification
         setLoading(false);
+        setShowRecaptcha(true);
         return;
       }
-      // id_token ni tokeninfo javobidan olib backendga yuboramiz
-      if (tokenInfo.id_token) {
-        await sendGoogleTokenToBackend(tokenInfo.id_token);
-      } else {
-        // Fallback: email bilan kirish
-        await handleEmailLogin(userInfo.email);
-      }
-    } catch {
-      Alert.alert('Xato', "Google foydalanuvchi ma'lumotlarini olishda xato.");
+
+      // If Telegram is installed, send via Telegram
+      await proceedSendOTP(formattedPhone, 'telegram');
+    } catch (err: any) {
+      Alert.alert('Xato', err?.response?.data?.detail || 'OTP yuborishda xatolik yuz berdi.');
       setLoading(false);
     }
   };
 
-  // Email orqali backendga yuborish
-  const handleEmailLogin = async (emailVal: string, phoneVal?: string) => {
-    if (!emailVal.includes('@')) {
-      Alert.alert('Xato', 'Iltimos, to\'g\'ri email manzili kiriting.');
-      return;
-    }
-
+  const proceedSendOTP = async (phoneVal: string, method: 'telegram' | 'recaptcha', recaptchaToken?: string) => {
     try {
       setLoading(true);
-      const res = await authAPI.emailAuth(emailVal, phoneVal, referralCode || undefined);
-      const { access, refresh, user } = res.data;
-      await login(access, refresh, user);
-
-      if (!user.first_name || onboardingRole === 'driver') {
-        router.replace({
-          pathname: '/(auth)/role-select',
-          params: { force_role: onboardingRole || undefined }
-        });
-        setOnboardingRole(null);
-      } else {
-        router.replace(user.role === 'driver' ? '/(driver)/home' : '/(passenger)/home');
-      }
+      await authAPI.sendOTP(phoneVal, method, recaptchaToken, ipAddress);
+      setLoading(false);
+      setShowRecaptcha(false);
+      
+      // Navigate to OTP Screen
+      router.push({
+        pathname: '/(auth)/otp',
+        params: {
+          identifier: phoneVal,
+          phone: phoneVal,
+          type: 'phone'
+        }
+      });
     } catch (err: any) {
-      const data = err?.response?.data;
-      if (data?.email && !phoneVal) {
-        // Yangi foydalanuvchi — ma'lumotlarni kiritish oynasini ochamiz
-        setRegEmail(data.email);
-        setRegFirstName(data.first_name || '');
-        setRegLastName(data.last_name || '');
-        setGoogleIdToken(null); // Google emas, email orqali registratsiya
-        setIsRegistering(true);
-      } else {
-        Alert.alert('Xato', data?.detail || 'Tizimga kirishda xatolik yuz berdi.');
-      }
-    } finally {
+      Alert.alert('Xato', err?.response?.data?.detail || 'OTP yuborishda xatolik yuz berdi.');
       setLoading(false);
     }
   };
 
-  const handleGooglePress = async () => {
-    if (IS_EXPO_GO) {
-      Alert.alert(
-        'Google orqali kirish mavjud emas',
-        "Expo Go ilovasida Google orqali kirish ishlamaydi — buni Google va Expo tomonidan qo'yilgan cheklov (Expo'ning eski proksi xizmati o'chirilgan). Iltimos, quyidagilardan birini tanlang:\n\n• Hozircha email orqali kiring\n• Yoki development build o'rnating (npx expo run:android / eas build --profile development)",
-        [{ text: 'Tushunarli' }]
-      );
-      return;
-    }
+  const handleRecaptchaVerify = async () => {
+    setIsRobotVerified(true);
     setLoading(true);
-    // v7 da promptAsync() ga hech qanday option berilmaydi
-    // useProxy parametri expo-auth-session v5+ dan olib tashlangan
-    await promptAsync();
-  };
-
-  // Ro'yxatdan o'tishni yakunlash (Finish registration)
-  const handleCompleteRegistration = async () => {
-    if (!regPhone || regPhone.length < 9) {
-      Alert.alert('Xato', 'Iltimos, telefon raqamini to\'liq kiriting.');
-      return;
-    }
-    if (!regFirstName.trim()) {
-      Alert.alert('Xato', 'Ismingizni kiriting.');
-      return;
-    }
-
-    // Google yoki Email orqali ro'yxatdan o'tishni davom ettiramiz
-    if (googleIdToken) {
-      // Ismlarni o'zgartirish kerak bo'lsa, backend profile orqali yangilaydi.
-      // Hozircha login qilib, keyin profildan saqlaymiz.
-      await sendGoogleTokenToBackend(googleIdToken, regPhone);
-    } else {
-      await handleEmailLogin(regEmail, regPhone);
-    }
+    // Simulate a slight delay for verification check
+    setTimeout(async () => {
+      const mockToken = 'mock-recaptcha-token-123456';
+      await proceedSendOTP(phone.trim(), 'recaptcha', mockToken);
+    }, 1500);
   };
 
   return (
@@ -228,13 +108,7 @@ export default function PhoneScreen() {
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) }]}>
         <TouchableOpacity
           style={styles.backBtn}
-          onPress={() => {
-            if (isRegistering) {
-              setIsRegistering(false);
-            } else {
-              router.back();
-            }
-          }}
+          onPress={() => router.back()}
         >
           <Ionicons name="arrow-back" size={24} color="#FFB800" />
         </TouchableOpacity>
@@ -251,137 +125,89 @@ export default function PhoneScreen() {
             resizeMode="contain"
           />
 
-          {!isRegistering ? (
-            // Kirish oynasi (Google yoki Email)
-            <>
-              <View style={styles.textGroup}>
-                <Text style={styles.title}>Goldride'ga xush kelibsiz</Text>
-                <Text style={styles.subtitle}>Tizimga kirish usulini tanlang</Text>
-              </View>
+          <View style={styles.textGroup}>
+            <Text style={styles.title}>Tizimga kirish / Ro'yxatdan o'tish</Text>
+            <Text style={styles.subtitle}>Telefon raqamingizni kiriting. Tasdiqlash kodi Telegram orqali yuboriladi.</Text>
+          </View>
 
-              {/* Email orqali kirish inputi */}
-              <View style={styles.inputContainer}>
-                <Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="Email manzilingizni kiriting"
-                  placeholderTextColor="#666"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  value={email}
-                  onChangeText={setEmail}
-                />
-              </View>
+          {/* Telefon kiritish inputi */}
+          <View style={styles.inputContainer}>
+            <Ionicons name="call-outline" size={20} color="#666" style={styles.inputIcon} />
+            <TextInput
+              style={styles.textInput}
+              placeholder="Telefon raqamingiz (+998XXXXXXXXX)"
+              placeholderTextColor="#666"
+              keyboardType="phone-pad"
+              autoCapitalize="none"
+              value={phone}
+              onChangeText={setPhone}
+            />
+          </View>
 
-              <TouchableOpacity
-                style={[styles.emailBtn, (!email.trim() || loading) && styles.buttonDisabled]}
-                onPress={() => handleEmailLogin(email)}
-                disabled={!email.trim() || loading}
-              >
-                {loading && !googleIdToken ? (
-                  <ActivityIndicator color="#000" size="small" />
-                ) : (
-                  <Text style={styles.emailBtnText}>Email orqali kirish</Text>
-                )}
-              </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.submitBtn, (!phone.trim() || loading) && styles.buttonDisabled]}
+            onPress={handlePhoneAuth}
+            disabled={!phone.trim() || loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#000" size="small" />
+            ) : (
+              <Text style={styles.submitBtnText}>Kodni olish</Text>
+            )}
+          </TouchableOpacity>
 
-              <View style={styles.dividerContainer}>
-                <View style={styles.divider} />
-                <Text style={styles.dividerText}>yoki</Text>
-                <View style={styles.divider} />
-              </View>
-
-              {/* Google orqali kirish tugmasi */}
-              <TouchableOpacity
-                style={[styles.googleBtn, (loading || !request) && styles.buttonDisabled]}
-                onPress={handleGooglePress}
-                disabled={loading || !request}
-              >
-                {loading && googleIdToken ? (
-                  <ActivityIndicator color="#000" size="small" />
-                ) : (
-                  <>
-                    <Ionicons name="logo-google" size={20} color="#000" />
-                    <Text style={styles.googleBtnText}>Google orqali kirish</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-
-              <View style={styles.infoBox}>
-                <Ionicons name="shield-checkmark" size={16} color="#10B981" />
-                <Text style={styles.infoText}>Barcha login va ma'lumotlar xavfsiz himoyalangan</Text>
-              </View>
-            </>
-          ) : (
-            // Ro'yxatdan o'tish oynasi (Telefon raqam va ismlarni olish)
-            <>
-              <View style={styles.textGroup}>
-                <Text style={styles.title}>Ro'yxatdan o'tish</Text>
-                <Text style={styles.subtitle}>Profilingizni yakunlash uchun ma'lumotlarni kiriting</Text>
-              </View>
-
-              {/* Email (Faqat o'qish uchun) */}
-              <View style={[styles.inputContainer, styles.inputDisabled]}>
-                <Ionicons name="mail" size={20} color="#444" style={styles.inputIcon} />
-                <TextInput
-                  style={[styles.textInput, { color: '#666' }]}
-                  value={regEmail}
-                  editable={false}
-                />
-              </View>
-
-              {/* Ism */}
-              <View style={styles.inputContainer}>
-                <Ionicons name="person-outline" size={20} color="#666" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="Ismingiz"
-                  placeholderTextColor="#666"
-                  value={regFirstName}
-                  onChangeText={setRegFirstName}
-                />
-              </View>
-
-              {/* Familiya */}
-              <View style={styles.inputContainer}>
-                <Ionicons name="person-outline" size={20} color="#666" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="Familiyangiz"
-                  placeholderTextColor="#666"
-                  value={regLastName}
-                  onChangeText={setRegLastName}
-                />
-              </View>
-
-              {/* Telefon raqami */}
-              <View style={styles.inputContainer}>
-                <Ionicons name="call-outline" size={20} color="#666" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="Telefon raqamingiz (+998...)"
-                  placeholderTextColor="#666"
-                  keyboardType="phone-pad"
-                  value={regPhone}
-                  onChangeText={setRegPhone}
-                />
-              </View>
-
-              <TouchableOpacity
-                style={[styles.emailBtn, loading && styles.buttonDisabled]}
-                onPress={handleCompleteRegistration}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#000" size="small" />
-                ) : (
-                  <Text style={styles.emailBtnText}>Ro'yxatdan o'tishni yakunlash</Text>
-                )}
-              </TouchableOpacity>
-            </>
-          )}
+          <View style={styles.infoBox}>
+            <Ionicons name="shield-checkmark" size={16} color="#FFB800" />
+            <Text style={styles.infoText}>Barcha ma'lumotlaringiz va IP manzilingiz ({ipAddress}) xavfsizlik maqsadida himoyalangan.</Text>
+          </View>
         </View>
       </ScrollView>
+
+      {/* ReCaptcha Verification Modal */}
+      <Modal
+        visible={showRecaptcha}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowRecaptcha(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.recaptchaHeader}>
+              <Ionicons name="shield-checkmark-outline" size={32} color="#4A90E2" />
+              <Text style={styles.recaptchaTitle}>Robot emasligingizni tasdiqlang</Text>
+              <Text style={styles.recaptchaSubtitle}>Telefoningizda Telegram topilmadi. Davom etish uchun tekshiruvdan o'ting.</Text>
+            </View>
+
+            <TouchableOpacity 
+              style={[styles.recaptchaCheckboxWrap, isRobotVerified && styles.recaptchaVerified]}
+              onPress={handleRecaptchaVerify}
+              disabled={isRobotVerified}
+            >
+              <View style={styles.checkboxSquare}>
+                {isRobotVerified ? (
+                  <Ionicons name="checkmark" size={20} color="#00E676" />
+                ) : null}
+              </View>
+              <Text style={styles.checkboxLabel}>Men robot emasman</Text>
+              <Image 
+                source={{ uri: 'https://www.gstatic.com/recaptcha/api2/logo_48.png' }}
+                style={styles.recaptchaLogo}
+              />
+            </TouchableOpacity>
+
+            {isRobotVerified && (
+              <ActivityIndicator size="small" color="#FFB800" style={{ marginTop: 20 }} />
+            )}
+
+            <TouchableOpacity 
+              style={styles.closeModalBtn}
+              onPress={() => setShowRecaptcha(false)}
+            >
+              <Text style={styles.closeModalBtnText}>Bekor qilish</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -389,7 +215,7 @@ export default function PhoneScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#00',
   },
   header: {
     paddingHorizontal: 24,
@@ -425,11 +251,13 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFF',
     marginBottom: 6,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: 14,
     color: '#888',
     textAlign: 'center',
+    lineHeight: 20,
   },
   inputContainer: {
     flexDirection: 'row',
@@ -450,11 +278,7 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
   },
-  inputDisabled: {
-    backgroundColor: '#0A0A0A',
-    borderColor: '#111',
-  },
-  emailBtn: {
+  submitBtn: {
     backgroundColor: '#FFB800',
     height: 56,
     borderRadius: 14,
@@ -467,22 +291,7 @@ const styles = StyleSheet.create({
     elevation: 4,
     marginBottom: 16,
   },
-  emailBtnText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#000',
-  },
-  googleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: '#FFF',
-    height: 56,
-    borderRadius: 14,
-    marginBottom: 24,
-  },
-  googleBtnText: {
+  submitBtnText: {
     fontSize: 16,
     fontWeight: '800',
     color: '#000',
@@ -490,36 +299,98 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.6,
   },
-  dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 16,
-  },
-  divider: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#222',
-  },
-  dividerText: {
-    paddingHorizontal: 12,
-    color: '#444',
-    fontSize: 14,
-    fontWeight: '600',
-  },
   infoBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: '#07140B',
+    backgroundColor: '#1A1505',
     borderRadius: 12,
     padding: 14,
     borderLeftWidth: 3,
-    borderLeftColor: '#10B981',
+    borderLeftColor: '#FFB800',
   },
   infoText: {
     flex: 1,
     fontSize: 13,
-    color: '#8CA693',
+    color: '#E0C068',
     fontWeight: '500',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#121212',
+    borderRadius: 20,
+    padding: 24,
+    width: '85%',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  recaptchaHeader: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  recaptchaTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFF',
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  recaptchaSubtitle: {
+    fontSize: 13,
+    color: '#888',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  recaptchaCheckboxWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E1E1E',
+    borderWidth: 1,
+    borderColor: '#333',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    width: '100%',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  recaptchaVerified: {
+    borderColor: '#00E676',
+  },
+  checkboxSquare: {
+    width: 24,
+    height: 24,
+    borderWidth: 2,
+    borderColor: '#555',
+    borderRadius: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#121212',
+  },
+  checkboxLabel: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+    marginLeft: 12,
+  },
+  recaptchaLogo: {
+    width: 32,
+    height: 32,
+  },
+  closeModalBtn: {
+    marginTop: 10,
+    paddingVertical: 10,
+  },
+  closeModalBtnText: {
+    color: '#FFB800',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

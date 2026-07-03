@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, Alert, ScrollView,
@@ -6,6 +6,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Network from 'expo-network';
 import { t } from '../../services/i18n';
 import { authAPI } from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
@@ -18,6 +19,19 @@ export default function PassengerRegisterScreen() {
   const [lastName, setLastName] = useState('');
   const [loading, setLoading] = useState(false);
   const [hasAgreed, setHasAgreed] = useState(false);
+  const [ipAddress, setIpAddress] = useState<string>('Unknown');
+
+  useEffect(() => {
+    async function getIP() {
+      try {
+        const ip = await Network.getIpAddressAsync();
+        setIpAddress(ip);
+      } catch (err) {
+        console.warn('Failed to retrieve IP Address in PassengerRegister:', err);
+      }
+    }
+    getIP();
+  }, []);
 
   const handleRegister = async () => {
     if (!firstName.trim()) {
@@ -35,7 +49,8 @@ export default function PassengerRegisterScreen() {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         role: 'passenger',
-        has_agreed_to_terms: true
+        has_agreed_to_terms: true,
+        ip_address: ipAddress
       });
       
       const profile = await authAPI.getProfile();
