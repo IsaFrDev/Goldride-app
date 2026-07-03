@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
-  FlatList, KeyboardAvoidingView, Platform, ActivityIndicator
+  FlatList, KeyboardAvoidingView, Platform, ActivityIndicator, Alert
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,6 +13,7 @@ export default function ChatScreen() {
   const { rideId } = useLocalSearchParams();
   const { user } = useAuthStore();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const flatListRef = useRef<FlatList>(null);
   
   const [messages, setMessages] = useState<any[]>([]);

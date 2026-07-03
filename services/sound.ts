@@ -22,7 +22,7 @@ class SoundService {
       }
       const { sound } = await Audio.Sound.createAsync(
         require('../assets/new_order.mp3'),
-        { volume: 1.0, shouldDuckOtherApps: true, isLooping: true }
+        { volume: 1.0, isLooping: true }
       );
       this.newOrderSound = sound;
       await sound.playAsync();
@@ -50,7 +50,7 @@ class SoundService {
       }
       const { sound } = await Audio.Sound.createAsync(
         require('../assets/arrived.mp3'),
-        { volume: 1.0, shouldDuckOtherApps: true }
+        { volume: 1.0 }
       );
       this.arrivedSound = sound;
       await sound.playAsync();

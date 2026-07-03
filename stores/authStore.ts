@@ -19,6 +19,7 @@ interface User {
   has_agreed_to_terms: boolean;
   total_passenger_rides: number;
   pending_referral_bonus: number;
+  telegram_username?: string | null;
 }
 
 interface AuthState {

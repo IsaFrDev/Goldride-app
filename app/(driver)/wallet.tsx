@@ -4,6 +4,7 @@ import {
   ActivityIndicator, Alert, TextInput, Modal, Animated, Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { t, getLanguage } from '../../services/i18n';
 import { authAPI, ridesAPI } from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
@@ -21,6 +22,7 @@ type Transaction = {
 };
 
 export default function WalletScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, isAuthenticated } = useAuthStore();
   const balanceAnim = useRef(new Animated.Value(0)).current;
