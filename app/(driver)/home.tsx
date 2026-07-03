@@ -4,7 +4,7 @@ import {
   Dimensions, Animated, ActivityIndicator, Image as RNImage,
   Modal, AppState,
 } from 'react-native';
-import * as Notifications from 'expo-notifications';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import Svg, { Rect, G, Path } from 'react-native-svg';
 import MapView, { Marker, Polyline, Circle } from '../../components/MapComponents';
 import * as Location from 'expo-location';
@@ -13,6 +13,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { t } from '../../services/i18n';
 import { authAPI, ridesAPI } from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
+
+const IS_EXPO_GO = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+const Notifications = !IS_EXPO_GO ? require('expo-notifications') : null;
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from 'expo-router';
 import { generateVirtualDrivers, updateVirtualPositions, balanceDrivers, VirtualDriver } from '../../utils/districtSimulation';
@@ -191,20 +194,22 @@ export default function DriverHomeScreen() {
 
   // Handle Notifications Setup & AppState listener for background status
   useEffect(() => {
-    // Request permission & setup notification handler
-    Notifications.requestPermissionsAsync();
-    Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: false,
-        shouldShowBanner: true,
-        shouldShowList: true,
-      }),
-    });
+    if (Notifications) {
+      // Request permission & setup notification handler
+      Notifications.requestPermissionsAsync();
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowAlert: true,
+          shouldPlaySound: true,
+          shouldSetBadge: false,
+          shouldShowBanner: true,
+          shouldShowList: true,
+        }),
+      });
+    }
 
     const subscription = AppState.addEventListener('change', (nextAppState) => {
-      if (nextAppState === 'background' && isOnline) {
+      if (nextAppState === 'background' && isOnline && Notifications) {
         Notifications.scheduleNotificationAsync({
           content: {
             title: 'Siz hali ham onlaynsiz!',
