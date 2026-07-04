@@ -16,4 +16,6 @@ config.transformer.getTransformOptions = async () => ({
   },
 });
 
+config.maxWorkers = 1;
+
 module.exports = config;
