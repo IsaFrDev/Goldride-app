@@ -67,29 +67,7 @@ export default function PhoneScreen() {
     }
 
     const fullPhone = `+998${rawPhone}`;
-    setLoading(true);
-    try {
-      // Check if Telegram app is installed
-      let hasTelegram = false;
-      try {
-        hasTelegram = await Linking.canOpenURL('tg://');
-      } catch (_) {
-        hasTelegram = false;
-      }
-
-      if (!hasTelegram) {
-        // If Telegram is not installed, prompt ReCaptcha Verification
-        setLoading(false);
-        setShowRecaptcha(true);
-        return;
-      }
-
-      // If Telegram is installed, send via Telegram
-      await proceedSendOTP(fullPhone, 'telegram');
-    } catch (err: any) {
-      Alert.alert('Xato', err?.response?.data?.detail || 'OTP yuborishda xatolik yuz berdi.');
-      setLoading(false);
-    }
+    await proceedSendOTP(fullPhone, 'telegram');
   };
 
   const proceedSendOTP = async (phoneVal: string, method: 'telegram' | 'recaptcha', recaptchaToken?: string) => {
