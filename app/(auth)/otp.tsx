@@ -2,15 +2,53 @@ import { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, Alert, ScrollView, Linking,
-  PanResponder, Animated
+  Modal
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Network from 'expo-network';
+import { WebView } from 'react-native-webview';
 import { t } from '../../services/i18n';
 import { authAPI } from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
+
+const RECAPTCHA_HTML = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+  <style>
+    body {
+      background-color: #111111;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body>
+  <form action="?" method="POST">
+    <div class="g-recaptcha" 
+         data-sitekey="6Le9YEQtAAAAALkttvCTtJlxcCKlljsInLJnYwTk" 
+         data-callback="onSuccess"
+         data-theme="dark"></div>
+  </form>
+  <script>
+    function onSuccess(token) {
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'recaptcha_success',
+        token: token
+      }));
+    }
+  </script>
+</body>
+</html>
+`;
 
 export default function OTPScreen() {
   const router = useRouter();
@@ -24,11 +62,8 @@ export default function OTPScreen() {
   const [ipAddress, setIpAddress] = useState<string>('Unknown');
   const inputs = useRef<(TextInput | null)[]>([]);
 
-  // Slider verification state (ReCAPTCHA simulyatsiyasi)
-  const [showSliderVerify, setShowSliderVerify] = useState(false);
-  const [sliderVerified, setSliderVerified] = useState(false);
-  const slideX = useRef(new Animated.Value(0)).current;
-  const sliderWidth = 230; // Track width (280) - handle width (46) - padding
+  // Google reCAPTCHA state
+  const [showRecaptcha, setShowRecaptcha] = useState(false);
 
   useEffect(() => {
     async function getIP() {
@@ -48,48 +83,26 @@ export default function OTPScreen() {
     return () => clearInterval(timer);
   }, []);
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderMove: (_, gestureState) => {
-        if (sliderVerified) return;
-        const newX = Math.max(0, Math.min(sliderWidth, gestureState.dx));
-        slideX.setValue(newX);
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        if (sliderVerified) return;
-        if (gestureState.dx >= sliderWidth - 15) {
-          // Muvaffaqiyatli tasdiqlandi!
-          Animated.timing(slideX, {
-            toValue: sliderWidth,
-            duration: 100,
-            useNativeDriver: true,
-          }).start(async () => {
-            setSliderVerified(true);
-            setShowSliderVerify(false);
-            Alert.alert("Muvaffaqiyatli", "Robot emasligingiz tasdiqlandi! Sizga kod yuborilmoqda.");
-            try {
-              setLoading(true);
-              const mockToken = 'mock-recaptcha-token-123456';
-              await authAPI.sendOTP(phone || identifier!, 'recaptcha', mockToken, ipAddress);
-              setCountdown(60);
-            } catch (err: any) {
-              Alert.alert('Xato', err?.response?.data?.detail || 'OTP yuborishda xatolik yuz berdi.');
-            } finally {
-              setLoading(false);
-            }
-          });
-        } else {
-          // Reset slider
-          Animated.spring(slideX, {
-            toValue: 0,
-            useNativeDriver: true,
-          }).start();
+  const onRecaptchaMessage = async (event: any) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.type === 'recaptcha_success') {
+        setShowRecaptcha(false);
+        setLoading(true);
+        try {
+          await authAPI.sendOTP(phone || identifier!, 'recaptcha', data.token, ipAddress);
+          setCountdown(60);
+          Alert.alert("Muvaffaqiyatli", "reCAPTCHA tasdiqlandi. Sizga 6 xonali kod yuborildi!");
+        } catch (err: any) {
+          Alert.alert('Xato', err?.response?.data?.detail || 'OTP yuborishda xatolik yuz berdi.');
+        } finally {
+          setLoading(false);
         }
-      },
-    })
-  ).current;
+      }
+    } catch (err) {
+      console.warn('WebView message parsing error:', err);
+    }
+  };
 
   const handleChange = (text: string, index: number) => {
     const newOtp = [...otp];
@@ -168,9 +181,7 @@ export default function OTPScreen() {
   };
 
   const handleNoTelegram = () => {
-    setSliderVerified(false);
-    slideX.setValue(0);
-    setShowSliderVerify(true);
+    setShowRecaptcha(true);
   };
 
   const resendOTP = async () => {
@@ -237,31 +248,8 @@ export default function OTPScreen() {
 
           {/* Telegram yo'q linki */}
           <TouchableOpacity style={styles.noTgLink} onPress={handleNoTelegram}>
-            <Text style={styles.noTgText}>Telegramingiz yo'qmi? (SMS kod olish)</Text>
+            <Text style={styles.noTgText}>Telegramingiz yo'qmi? (reCAPTCHA kod olish)</Text>
           </TouchableOpacity>
-
-          {/* ReCAPTCHA slider verification modal */}
-          {showSliderVerify && (
-            <View style={styles.sliderOverlay}>
-              <View style={styles.sliderContainer}>
-                <Text style={styles.sliderTitle}>Robot emasligingizni tasdiqlang</Text>
-                
-                <View style={styles.sliderTrack}>
-                  <Text style={styles.sliderText}>Tasdiqlash uchun suring &gt;&gt;</Text>
-                  <Animated.View 
-                    style={[styles.sliderHandle, { transform: [{ translateX: slideX }] }]}
-                    {...panResponder.panHandlers}
-                  >
-                    <Ionicons name="arrow-forward" size={20} color="#000" />
-                  </Animated.View>
-                </View>
-
-                <TouchableOpacity style={styles.sliderClose} onPress={() => setShowSliderVerify(false)}>
-                  <Text style={styles.sliderCloseText}>Bekor qilish</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
 
           <TouchableOpacity
             style={styles.resendBtn}
@@ -276,6 +264,36 @@ export default function OTPScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Google reCAPTCHA WebView Modal */}
+      <Modal
+        visible={showRecaptcha}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowRecaptcha(false)}
+      >
+        <View style={styles.recaptchaOverlay}>
+          <View style={styles.recaptchaContainer}>
+            <View style={styles.recaptchaHeader}>
+              <Text style={styles.recaptchaTitle}>Robot emasligingizni tasdiqlang</Text>
+              <TouchableOpacity onPress={() => setShowRecaptcha(false)}>
+                <Ionicons name="close" size={24} color="#FFF" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.webviewWrapper}>
+              <WebView
+                source={{ html: RECAPTCHA_HTML }}
+                onMessage={onRecaptchaMessage}
+                style={styles.webview}
+                javaScriptEnabled={true}
+                domStorageEnabled={true}
+                originWhitelist={['*']}
+                scalesPageToFit={true}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
         <TouchableOpacity
@@ -433,67 +451,40 @@ const styles = StyleSheet.create({
   verifyBtnDisabled: {
     opacity: 0.6,
   },
-  // Slider verify styles
-  sliderOverlay: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.85)',
+  // Google reCAPTCHA modal styles
+  recaptchaOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 1000,
   },
-  sliderContainer: {
+  recaptchaContainer: {
     width: '90%',
+    height: '60%',
     backgroundColor: '#111',
     borderRadius: 24,
-    padding: 24,
-    alignItems: 'center',
+    padding: 20,
     borderWidth: 1,
     borderColor: '#222',
   },
-  sliderTitle: {
+  recaptchaHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  recaptchaTitle: {
     fontSize: 16,
     fontWeight: '800',
     color: '#FFF',
-    marginBottom: 20,
   },
-  sliderTrack: {
-    width: 280,
-    height: 50,
-    backgroundColor: '#1E1E1E',
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
+  webviewWrapper: {
+    flex: 1,
+    borderRadius: 16,
     overflow: 'hidden',
-    position: 'relative',
-    borderWidth: 1,
-    borderColor: '#333',
   },
-  sliderText: {
-    color: '#666',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  sliderHandle: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: '#FFB800',
-    position: 'absolute',
-    left: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sliderClose: {
-    marginTop: 20,
-    padding: 10,
-  },
-  sliderCloseText: {
-    color: '#94A3B8',
-    fontSize: 14,
-    fontWeight: '700',
+  webview: {
+    flex: 1,
+    backgroundColor: '#111',
   },
 });
