@@ -177,7 +177,7 @@ export default function OTPScreen() {
   };
 
   const openTelegramBot = () => {
-    Linking.openURL('https://t.me/goldride_taxi_bot');
+    Linking.openURL('https://t.me/Goldride_bot');
   };
 
   const handleNoTelegram = () => {
