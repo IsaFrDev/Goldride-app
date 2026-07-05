@@ -127,6 +127,7 @@ export default function ReferralScreen() {
                 placeholder={t('ref.enter_promo_placeholder')}
                 placeholderTextColor="#666"
                 autoCapitalize="characters"
+                maxLength={12}
                 value={promoCodeInput}
                 onChangeText={setPromoCodeInput}
               />
