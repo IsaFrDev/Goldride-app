@@ -235,7 +235,7 @@ const translations: Record<string, Record<Language, string>> = {
   'ref.points': { uz: 'Ballar', ru: 'Баллы', en: 'Points' },
   'ref.bonus_wallet': { uz: 'Bonus Hamyon', ru: 'Бонусный кошелек', en: 'Bonus Wallet' },
   'ref.how_it_works': { uz: 'Qanday ishlaydi?', ru: 'Как это работает?', en: 'How it works?' },
-  'ref.step_1': { uz: 'Promokodingizni do'stlaringizga yuboring.', ru: 'Отправьте свой промокод друзьям.', en: 'Send your promo code to your friends.' },
+  'ref.step_1': { uz: "Promokodingizni do'stlaringizga yuboring.", ru: 'Отправьте свой промокод друзьям.', en: 'Send your promo code to your friends.' },
   'ref.step_2': { uz: 'Do\'stingiz kodingiz bilan ro\'yxatdan o\'tsin yoki ilovaga kiritsin va 20 000 UZS bonusni kuting.', ru: 'Пусть ваш друг зарегистрируется с вашим кодом или введет его в приложении, и ждите бонус 20 000 сум.', en: 'Let your friend register with your code or enter it in the app and get 20 000 UZS bonus.' },
   'ref.step_3': { uz: 'Uning 3-safaridan so\'ng uning bonusi aktivlashadi, siz esa uning har bir safaridan 5% keshbek olasiz!', ru: 'После его 3-й поездки его бонус активируется, а вы будете получать 5% кэшбека с каждой его поездки!', en: 'After their 3rd ride, their bonus activates, and you get 5% cashback from their every ride!' },
   'ref.promo_applied': { uz: 'Taklif kodi kiritilgan', ru: 'Код приглашения введен', en: 'Invitation code entered' },
