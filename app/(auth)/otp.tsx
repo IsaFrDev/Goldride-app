@@ -8,47 +8,9 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Network from 'expo-network';
-import { WebView } from 'react-native-webview';
 import { t } from '../../services/i18n';
 import { authAPI } from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
-
-const RECAPTCHA_HTML = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <script src="https://www.google.com/recaptcha/api.js" async defer></script>
-  <style>
-    body {
-      background-color: #111111;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      margin: 0;
-      overflow: hidden;
-    }
-  </style>
-</head>
-<body>
-  <form action="?" method="POST">
-    <div class="g-recaptcha" 
-         data-sitekey="6Le9YEQtAAAAALkttvCTtJlxcCKlljsInLJnYwTk" 
-         data-callback="onSuccess"
-         data-theme="dark"></div>
-  </form>
-  <script>
-    function onSuccess(token) {
-      window.ReactNativeWebView.postMessage(JSON.stringify({
-        type: 'recaptcha_success',
-        token: token
-      }));
-    }
-  </script>
-</body>
-</html>
-`;
 
 export default function OTPScreen() {
   const router = useRouter();
@@ -62,8 +24,11 @@ export default function OTPScreen() {
   const [ipAddress, setIpAddress] = useState<string>('Unknown');
   const inputs = useRef<(TextInput | null)[]>([]);
 
-  // Google reCAPTCHA state
-  const [showRecaptcha, setShowRecaptcha] = useState(false);
+  // Local Simple Captcha (WB style) states
+  const [showCaptcha, setShowCaptcha] = useState(false);
+  const [captchaCode, setCaptchaCode] = useState('');
+  const [captchaInput, setCaptchaInput] = useState('');
+  const [captchaStyles, setCaptchaStyles] = useState<{ rotate: string; translateY: number; color: string }[]>([]);
 
   useEffect(() => {
     async function getIP() {
@@ -83,24 +48,50 @@ export default function OTPScreen() {
     return () => clearInterval(timer);
   }, []);
 
-  const onRecaptchaMessage = async (event: any) => {
+  // Generates a random 4-digit code and styling for each digit
+  const generateCaptcha = () => {
+    const code = Math.floor(1000 + Math.random() * 9000).toString();
+    setCaptchaCode(code);
+    setCaptchaInput('');
+
+    // Generate random rotations, offsets and colors for each character to make it look like a real captcha
+    const styles = Array.from({ length: 4 }).map(() => {
+      const rot = Math.floor(-25 + Math.random() * 50); // -25deg to 25deg
+      const transY = Math.floor(-6 + Math.random() * 12); // -6 to 6 offset
+      const colors = ['#FFB800', '#FFD700', '#FFA500', '#F5C400', '#FFE600'];
+      const randomColor = colors[Math.floor(Math.random() * colors.length)];
+      return {
+        rotate: `${rot}deg`,
+        translateY: transY,
+        color: randomColor
+      };
+    });
+    setCaptchaStyles(styles);
+  };
+
+  const handleNoTelegram = () => {
+    generateCaptcha();
+    setShowCaptcha(true);
+  };
+
+  const handleVerifyCaptcha = async () => {
+    if (captchaInput.trim() !== captchaCode) {
+      Alert.alert("Xato", "Captcha kodi noto'g'ri kiritildi. Qaytadan urinib ko'ring.");
+      generateCaptcha();
+      return;
+    }
+
+    setShowCaptcha(false);
+    setLoading(true);
     try {
-      const data = JSON.parse(event.nativeEvent.data);
-      if (data.type === 'recaptcha_success') {
-        setShowRecaptcha(false);
-        setLoading(true);
-        try {
-          await authAPI.sendOTP(phone || identifier!, 'recaptcha', data.token, ipAddress);
-          setCountdown(60);
-          Alert.alert("Muvaffaqiyatli", "reCAPTCHA tasdiqlandi. Sizga 6 xonali kod yuborildi!");
-        } catch (err: any) {
-          Alert.alert('Xato', err?.response?.data?.detail || 'OTP yuborishda xatolik yuz berdi.');
-        } finally {
-          setLoading(false);
-        }
-      }
-    } catch (err) {
-      console.warn('WebView message parsing error:', err);
+      const mockToken = `local-captcha-token-${captchaCode}`;
+      await authAPI.sendOTP(phone || identifier!, 'recaptcha', mockToken, ipAddress);
+      setCountdown(60);
+      Alert.alert("Muvaffaqiyatli", "Tasdiq kodi yuborildi!");
+    } catch (err: any) {
+      Alert.alert('Xato', err?.response?.data?.detail || 'OTP yuborishda xatolik yuz berdi.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -177,11 +168,8 @@ export default function OTPScreen() {
   };
 
   const openTelegramBot = () => {
+    // Correct URL to `@Goldride_bot`
     Linking.openURL('https://t.me/Goldride_bot');
-  };
-
-  const handleNoTelegram = () => {
-    setShowRecaptcha(true);
   };
 
   const resendOTP = async () => {
@@ -248,7 +236,7 @@ export default function OTPScreen() {
 
           {/* Telegram yo'q linki */}
           <TouchableOpacity style={styles.noTgLink} onPress={handleNoTelegram}>
-            <Text style={styles.noTgText}>Telegramingiz yo'qmi? (reCAPTCHA kod olish)</Text>
+            <Text style={styles.noTgText}>Telegramingiz yo'qmi? (Oddiy kod olish)</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -265,32 +253,76 @@ export default function OTPScreen() {
         </View>
       </ScrollView>
 
-      {/* Google reCAPTCHA WebView Modal */}
+      {/* Local WB-Style Captcha Modal */}
       <Modal
-        visible={showRecaptcha}
+        visible={showCaptcha}
         transparent={true}
         animationType="slide"
-        onRequestClose={() => setShowRecaptcha(false)}
+        onRequestClose={() => setShowCaptcha(false)}
       >
-        <View style={styles.recaptchaOverlay}>
-          <View style={styles.recaptchaContainer}>
-            <View style={styles.recaptchaHeader}>
-              <Text style={styles.recaptchaTitle}>Robot emasligingizni tasdiqlang</Text>
-              <TouchableOpacity onPress={() => setShowRecaptcha(false)}>
+        <View style={styles.captchaOverlay}>
+          <View style={styles.captchaContainer}>
+            <View style={styles.captchaHeader}>
+              <Text style={styles.captchaTitle}>Robot emasligingizni tasdiqlang</Text>
+              <TouchableOpacity onPress={() => setShowCaptcha(false)}>
                 <Ionicons name="close" size={24} color="#FFF" />
               </TouchableOpacity>
             </View>
-            <View style={styles.webviewWrapper}>
-              <WebView
-                source={{ html: RECAPTCHA_HTML }}
-                onMessage={onRecaptchaMessage}
-                style={styles.webview}
-                javaScriptEnabled={true}
-                domStorageEnabled={true}
-                originWhitelist={['*']}
-                scalesPageToFit={true}
-              />
+
+            {/* Captcha Image/Text Box with noise */}
+            <View style={styles.captchaBox}>
+              {/* Noise lines */}
+              <View style={styles.noiseLine1} />
+              <View style={styles.noiseLine2} />
+              <View style={styles.noiseLine3} />
+              
+              {/* Stylized Digits */}
+              <View style={styles.digitsWrapper}>
+                {captchaCode.split('').map((char, index) => {
+                  const style = captchaStyles[index] || { rotate: '0deg', translateY: 0, color: '#FFB800' };
+                  return (
+                    <Text
+                      key={index}
+                      style={[
+                        styles.captchaDigit,
+                        {
+                          color: style.color,
+                          transform: [
+                            { rotate: style.rotate },
+                            { translateY: style.translateY }
+                          ]
+                        }
+                      ]}
+                    >
+                      {char}
+                    </Text>
+                  );
+                })}
+              </View>
+
+              <TouchableOpacity style={styles.refreshBtn} onPress={generateCaptcha}>
+                <Ionicons name="refresh-outline" size={20} color="#FFB800" />
+              </TouchableOpacity>
             </View>
+
+            {/* Input fields */}
+            <TextInput
+              style={styles.captchaInput}
+              placeholder="Rasmda ko'rsatilgan sonlarni yozing"
+              placeholderTextColor="#666"
+              keyboardType="number-pad"
+              maxLength={4}
+              value={captchaInput}
+              onChangeText={setCaptchaInput}
+            />
+
+            <TouchableOpacity 
+              style={[styles.captchaVerifyBtn, captchaInput.length !== 4 && styles.captchaVerifyBtnDisabled]} 
+              onPress={handleVerifyCaptcha}
+              disabled={captchaInput.length !== 4}
+            >
+              <Text style={styles.captchaVerifyBtnText}>Tasdiqlash</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -451,40 +483,111 @@ const styles = StyleSheet.create({
   verifyBtnDisabled: {
     opacity: 0.6,
   },
-  // Google reCAPTCHA modal styles
-  recaptchaOverlay: {
+  // Captcha Modal styles
+  captchaOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.85)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  recaptchaContainer: {
-    width: '90%',
-    height: '60%',
+  captchaContainer: {
+    width: '85%',
     backgroundColor: '#111',
     borderRadius: 24,
-    padding: 20,
+    padding: 24,
     borderWidth: 1,
     borderColor: '#222',
   },
-  recaptchaHeader: {
+  captchaHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
   },
-  recaptchaTitle: {
+  captchaTitle: {
     fontSize: 16,
     fontWeight: '800',
     color: '#FFF',
   },
-  webviewWrapper: {
-    flex: 1,
+  captchaBox: {
+    height: 90,
+    width: '100%',
+    backgroundColor: '#1E1E1E',
     borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#333',
+    marginBottom: 20,
   },
-  webview: {
-    flex: 1,
-    backgroundColor: '#111',
+  noiseLine1: {
+    position: 'absolute',
+    width: '120%',
+    height: 2,
+    backgroundColor: '#333',
+    transform: [{ rotate: '15deg' }],
+    opacity: 0.6,
+  },
+  noiseLine2: {
+    position: 'absolute',
+    width: '120%',
+    height: 1.5,
+    backgroundColor: '#444',
+    transform: [{ rotate: '-20deg' }],
+    opacity: 0.5,
+  },
+  noiseLine3: {
+    position: 'absolute',
+    width: '100%',
+    height: 1.2,
+    backgroundColor: '#222',
+    top: 45,
+    opacity: 0.7,
+  },
+  digitsWrapper: {
+    flexDirection: 'row',
+    gap: 16,
+    alignItems: 'center',
+  },
+  captchaDigit: {
+    fontSize: 34,
+    fontWeight: '900',
+    letterSpacing: 4,
+  },
+  refreshBtn: {
+    position: 'absolute',
+    right: 12,
+    bottom: 12,
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: '#2C2C2C',
+  },
+  captchaInput: {
+    height: 52,
+    backgroundColor: '#1C1C1E',
+    borderRadius: 12,
+    borderColor: '#333',
+    borderWidth: 1,
+    color: '#FFF',
+    fontSize: 15,
+    textAlign: 'center',
+    fontWeight: '700',
+    marginBottom: 20,
+  },
+  captchaVerifyBtn: {
+    backgroundColor: '#FFB800',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  captchaVerifyBtnDisabled: {
+    opacity: 0.5,
+  },
+  captchaVerifyBtnText: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: '800',
   },
 });
