@@ -127,6 +127,7 @@ export const authAPI = {
   getTaxiParks: () => api.get('/auth/taxi-park/list/'),
   getProfile: () => api.get('/auth/profile/'),
   updateProfile: (data: any) => api.put('/auth/profile/', data),
+  submitReferralCode: (referralCode: string) => api.post('/auth/profile/submit-referral/', { referral_code: referralCode }),
   getDriverProfile: () => api.get('/auth/driver/profile/'),
   toggleDriverStatus: (data?: any) =>
     api.post('/auth/driver/toggle-status/', data || {}),

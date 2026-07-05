@@ -20,6 +20,7 @@ interface User {
   total_passenger_rides: number;
   pending_referral_bonus: number;
   telegram_username?: string | null;
+  referred_by?: number | null;
 }
 
 interface AuthState {
