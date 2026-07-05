@@ -117,7 +117,7 @@ export const authAPI = {
     api.post('/auth/send-otp/', { phone, method, recaptcha_token: recaptchaToken, ip_address: ipAddress }),
   
   verifyOTP: (identifier: string, code: string, type: 'phone' | 'email', phone?: string, referralCode?: string, ipAddress?: string) =>
-    api.post('/auth/verify-otp/', { identifier, code, type, phone, referral_code: referralCode, ip_address: ipAddress }),
+    api.post('/auth/verify-otp/', { identifier, code, otp: code, type, phone, referral_code: referralCode, ip_address: ipAddress }),
 
   register: (data: any) => api.post('/auth/register/', data),
   registerDriver: (data: FormData) =>
