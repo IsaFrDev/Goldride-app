@@ -206,6 +206,38 @@ const translations: Record<string, Record<Language, string>> = {
   'settings.phone_readonly': { uz: 'Telefon raqamini o\'zgartirib bo\'lmaydi', ru: 'Номер телефона нельзя изменить', en: 'Phone number cannot be changed' },
   'settings.login_required': { uz: 'Iltimos, avval tizimga kiring', ru: 'Пожалуйста, сначала войдите', en: 'Please login first' },
   'settings.logout_confirm': { uz: 'Chiqishni xohlaysizmi?', ru: 'Вы действительно хотите выйти?', en: 'Do you want to logout?' },
+
+  // Profile additions
+  'profile.contact': { uz: "Bog'lanish", ru: 'Связь', en: 'Contact' },
+  'profile.save': { uz: 'Saqlash', ru: 'Сохранить', en: 'Save' },
+  'profile.telegram_hint': { uz: "* To'ldirish va yechish so'rovlari uchun kerak", ru: '* Необходим для пополнения и вывода средств', en: '* Required for deposit and withdrawal requests' },
+  'profile.invite_friends': { uz: "Do'stlarni taklif qil", ru: 'Пригласить друзей', en: 'Invite Friends' },
+  'profile.your_referral_code': { uz: 'Sizning taklif kodingiz', ru: 'Ваш код приглашения', en: 'Your referral code' },
+  'profile.friend_gets_10k': { uz: "Do'stingiz 10,000 so'm oladi", ru: 'Друг получит 10,000 сум', en: 'Your friend gets 10,000 UZS' },
+  'profile.you_get_cashback': { uz: 'Siz har safaridan 1-2% bonus', ru: 'Вы получите 1-2% бонуса с каждой поездки', en: 'You get 1-2% bonus from each ride' },
+  'profile.share_with_friends': { uz: "Do'stlarga ulashish", ru: 'Поделиться с друзьями', en: 'Share with friends' },
+  'profile.switch_to_driver': { uz: "Haydovchi rejimiga o'tish", ru: 'Переключить на водителя', en: 'Switch to Driver Mode' },
+  'profile.earn_driving_taxi': { uz: 'Taksi haydab daromad olish', ru: 'Зарабатывать вождением такси', en: 'Earn money driving taxi' },
+  'profile.switch_error': { uz: "Haydovchi rejimiga o'tishda xatolik yuz berdi.", ru: 'Ошибка при переключении в режим водителя.', en: 'Error switching to driver mode.' },
+
+  // Referral / Bonus additions
+  'ref.title': { uz: "Do'stlaringizni taklif qiling", ru: 'Приглашайте друзей', en: 'Invite Your Friends' },
+  'ref.subtitle': { uz: "Do'stingizning birinchi 10 ta safaridan 5% keshbek oling! Do'stingizga esa 20 000 UZS bonus beriladi.", ru: 'Получайте 5% кэшбека с первых 10 поездок вашего друга! Друг получит 20 000 сум бонуса.', en: 'Get 5% cashback from your friend\'s first 10 rides! Your friend gets 20 000 UZS bonus.' },
+  'ref.id_number': { uz: 'ID RAQAMINGIZ', ru: 'ВАШ ID NUMBER', en: 'YOUR ID NUMBER' },
+  'ref.your_promo': { uz: 'Sizning promokodingiz', ru: 'Ваш промокод', en: 'Your promo code' },
+  'ref.share': { uz: 'Ulashish', ru: 'Поделиться', en: 'Share' },
+  'ref.who_invited': { uz: 'Sizni kim taklif qildi?', ru: 'Кто вас пригласил?', en: 'Who invited you?' },
+  'ref.enter_promo_hint': { uz: 'Do\'stingiz promokodini (masalan: GOLD109287) kiriting va 20 000 UZS bonus oling!', ru: 'Введите промокод друга (например: GOLD109287) и получите 20 000 сум бонуса!', en: 'Enter your friend\'s promo code (e.g., GOLD109287) and get 20 000 UZS bonus!' },
+  'ref.enter_promo_placeholder': { uz: 'Promokodni kiriting', ru: 'Введите промокод', en: 'Enter promo code' },
+  'ref.submit': { uz: 'Kiritish', ru: 'Ввести', en: 'Submit' },
+  'ref.points': { uz: 'Ballar', ru: 'Баллы', en: 'Points' },
+  'ref.bonus_wallet': { uz: 'Bonus Hamyon', ru: 'Бонусный кошелек', en: 'Bonus Wallet' },
+  'ref.how_it_works': { uz: 'Qanday ishlaydi?', ru: 'Как это работает?', en: 'How it works?' },
+  'ref.step_1': { uz: 'Promokodingizni do'stlaringizga yuboring.', ru: 'Отправьте свой промокод друзьям.', en: 'Send your promo code to your friends.' },
+  'ref.step_2': { uz: 'Do\'stingiz kodingiz bilan ro\'yxatdan o\'tsin yoki ilovaga kiritsin va 20 000 UZS bonusni kuting.', ru: 'Пусть ваш друг зарегистрируется с вашим кодом или введет его в приложении, и ждите бонус 20 000 сум.', en: 'Let your friend register with your code or enter it in the app and get 20 000 UZS bonus.' },
+  'ref.step_3': { uz: 'Uning 3-safaridan so\'ng uning bonusi aktivlashadi, siz esa uning har bir safaridan 5% keshbek olasiz!', ru: 'После его 3-й поездки его бонус активируется, а вы будете получать 5% кэшбека с каждой его поездки!', en: 'After their 3rd ride, their bonus activates, and you get 5% cashback from their every ride!' },
+  'ref.promo_applied': { uz: 'Taklif kodi kiritilgan', ru: 'Код приглашения введен', en: 'Invitation code entered' },
+  'ref.promo_applied_desc': { uz: 'Siz taklif bonusi (20 000 UZS) ga egasiz!', ru: 'У вас есть пригласительный бонус (20 000 сум)!', en: 'You have the invitation bonus (20 000 UZS)!' },
 };
 
 let currentLanguage: Language = 'uz';

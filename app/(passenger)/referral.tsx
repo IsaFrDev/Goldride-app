@@ -5,9 +5,10 @@ import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../stores/authStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { authAPI } from '../../services/api';
+import { t } from '../../services/i18n';
 
 export default function ReferralScreen() {
-  const { user, setUser } = useAuthStore();
+  const { user, setUser, language } = useAuthStore();
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
@@ -33,7 +34,7 @@ export default function ReferralScreen() {
 
   const handleSubmitPromoCode = async () => {
     if (!promoCodeInput.trim()) {
-      Alert.alert("Xato", "Iltimos, promokodni kiriting.");
+      Alert.alert(t('common.error'), t('settings.enter_first_name'));
       return;
     }
 
@@ -41,15 +42,14 @@ export default function ReferralScreen() {
     try {
       const response = await authAPI.submitReferralCode(promoCodeInput.trim());
       
-      // Fetch latest profile details to update store state
       const profileResponse = await authAPI.getProfile();
       setUser(profileResponse.data);
 
-      Alert.alert("Muvaffaqiyatli", response.data.detail || "Promokod muvaffaqiyatli qabul qilindi!");
+      Alert.alert(t('common.success'), response.data.detail || t('common.success'));
       setPromoCodeInput('');
     } catch (error: any) {
-      const errMsg = error.response?.data?.detail || "Promokod kiritishda xatolik yuz berdi.";
-      Alert.alert("Xato", errMsg);
+      const errMsg = error.response?.data?.detail || t('settings.update_error');
+      Alert.alert(t('common.error'), errMsg);
     } finally {
       setPromoLoading(false);
     }
@@ -59,15 +59,15 @@ export default function ReferralScreen() {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 }]}>
          <Ionicons name="lock-closed" size={80} color="#333" style={{ marginBottom: 20 }} />
-         <Text style={styles.title}>Bonus olish uchun</Text>
+         <Text style={styles.title}>{t('profile.login_to_view')}</Text>
          <Text style={styles.subtitle}>
-           Avval tizimga kiring yoki ro'yxatdan o'ting.
+           {t('settings.login_required')}
          </Text>
          <TouchableOpacity 
            style={[styles.copyBtn, { marginTop: 30, width: '100%', justifyContent: 'center' }]}
            onPress={() => router.push('/(auth)/phone')}
          >
-           <Text style={styles.copyBtnText}>Kirish / Ro'yxatdan o'tish</Text>
+           <Text style={styles.copyBtnText}>{t('profile.login_signup')}</Text>
          </TouchableOpacity>
       </View>
     );
@@ -79,24 +79,24 @@ export default function ReferralScreen() {
         <View style={styles.giftIcon}>
           <Ionicons name="gift" size={60} color="#FFB800" />
         </View>
-        <Text style={styles.title}>Do'stlaringizni taklif qiling</Text>
+        <Text style={styles.title}>{t('ref.title')}</Text>
         <Text style={styles.subtitle}>
-          Do'stingizning birinchi 10 ta safaridan 5% keshbek oling! Do'stingizga esa 20 000 UZS bonus beriladi.
+          {t('ref.subtitle')}
         </Text>
       </View>
 
       {/* Your Promo Code Card */}
       <View style={styles.codeCard}>
         <View style={styles.idRow}>
-           <Text style={styles.idLabel}>ID RAQAMINGIZ: </Text>
+           <Text style={styles.idLabel}>{t('ref.id_number')}: </Text>
            <Text style={styles.idValue}>{user?.id_number || '100001'}</Text>
         </View>
-        <Text style={styles.codeLabel}>Sizning promokodingiz</Text>
+        <Text style={styles.codeLabel}>{t('ref.your_promo')}</Text>
         <View style={styles.codeRow}>
           <Text style={styles.codeText}>{user?.referral_code || 'GOLDXYZ'}</Text>
           <TouchableOpacity style={styles.copyBtn} onPress={handleShare}>
             <Ionicons name="share-social" size={20} color="#000" />
-            <Text style={styles.copyBtnText}>Ulashish</Text>
+            <Text style={styles.copyBtnText}>{t('ref.share')}</Text>
           </TouchableOpacity>
         </View>
         <View style={{ marginTop: 14, backgroundColor: '#0F172A', borderRadius: 12, padding: 12 }}>
@@ -113,18 +113,18 @@ export default function ReferralScreen() {
               <Ionicons name="checkmark-circle" size={24} color="#10B981" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.referredTitle}>Taklif kodi kiritilgan</Text>
-              <Text style={styles.referredSubtitle}>Siz taklif bonusi (20 000 UZS) ga egasiz!</Text>
+              <Text style={styles.referredTitle}>{t('ref.promo_applied')}</Text>
+              <Text style={styles.referredSubtitle}>{t('ref.promo_applied_desc')}</Text>
             </View>
           </View>
         ) : (
           <View>
-            <Text style={styles.inputCardTitle}>Sizni kim taklif qildi?</Text>
-            <Text style={styles.inputCardSubtitle}>Do'stingiz promokodini (masalan: GOLD109287) kiriting va 20 000 UZS bonus oling!</Text>
+            <Text style={styles.inputCardTitle}>{t('ref.who_invited')}</Text>
+            <Text style={styles.inputCardSubtitle}>{t('ref.enter_promo_hint')}</Text>
             <View style={styles.inputRow}>
               <TextInput
                 style={styles.promoInput}
-                placeholder="Promokodni kiriting"
+                placeholder={t('ref.enter_promo_placeholder')}
                 placeholderTextColor="#666"
                 autoCapitalize="characters"
                 value={promoCodeInput}
@@ -138,7 +138,7 @@ export default function ReferralScreen() {
                 {promoLoading ? (
                   <ActivityIndicator size="small" color="#000" />
                 ) : (
-                  <Text style={styles.submitPromoBtnText}>Kiritish</Text>
+                  <Text style={styles.submitPromoBtnText}>{t('ref.submit')}</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -149,27 +149,27 @@ export default function ReferralScreen() {
       <View style={styles.statsSection}>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>{user?.gold_points || 0}</Text>
-          <Text style={styles.statLabel}>Ballar</Text>
+          <Text style={styles.statLabel}>{t('ref.points')}</Text>
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>{parseInt(user?.bonus_balance?.toString() || '0').toLocaleString()} UZS</Text>
-          <Text style={styles.statLabel}>Bonus Hamyon</Text>
+          <Text style={styles.statLabel}>{t('ref.bonus_wallet')}</Text>
         </View>
       </View>
 
       <View style={styles.infoSection}>
-        <Text style={styles.infoTitle}>Qanday ishlaydi?</Text>
+        <Text style={styles.infoTitle}>{t('ref.how_it_works')}</Text>
         <View style={styles.stepRow}>
           <View style={styles.stepNum}><Text style={styles.stepNumText}>1</Text></View>
-          <Text style={styles.stepText}>Promokodingizni do'stlaringizga yuboring.</Text>
+          <Text style={styles.stepText}>{t('ref.step_1')}</Text>
         </View>
         <View style={styles.stepRow}>
           <View style={styles.stepNum}><Text style={styles.stepNumText}>2</Text></View>
-          <Text style={styles.stepText}>Do'stingiz kodingiz bilan ro'yxatdan o'tsin yoki ilovaga kiritsin va 20 000 UZS bonusni kuting.</Text>
+          <Text style={styles.stepText}>{t('ref.step_2')}</Text>
         </View>
         <View style={styles.stepRow}>
           <View style={styles.stepNum}><Text style={styles.stepNumText}>3</Text></View>
-          <Text style={styles.stepText}>Uning 3-safaridan so'ng uning bonusi aktivlashadi, siz esa uning har bir safaridan 5% keshbek olasiz!</Text>
+          <Text style={styles.stepText}>{t('ref.step_3')}</Text>
         </View>
       </View>
     </ScrollView>

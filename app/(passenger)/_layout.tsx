@@ -1,8 +1,10 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { t } from '../../services/i18n';
+import { useAuthStore } from '../../stores/authStore';
 
 export default function PassengerLayout() {
+  const { language } = useAuthStore();
   return (
     <Tabs
       screenOptions={{

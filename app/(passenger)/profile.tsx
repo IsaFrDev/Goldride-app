@@ -100,7 +100,7 @@ export default function ProfileScreen() {
       {/* Social / Contact */}
       {isAuthenticated && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Bog'lanish</Text>
+          <Text style={styles.sectionTitle}>{t('profile.contact')}</Text>
           <View style={styles.inputCard}>
             <Ionicons name="paper-plane" size={20} color="#0088cc" />
             <TextInput
@@ -119,37 +119,37 @@ export default function ProfileScreen() {
                   setUpdating(true);
                   const resp = await authAPI.updateProfile({ telegram_username: tgUsername });
                   setUser(resp.data);
-                  Alert.alert("Muvaffaqiyatli", "Telegram username saqlandi.");
+                  Alert.alert(t('common.success'), t('settings.update_success'));
                 } catch (e) {
-                  Alert.alert("Xato", "Saqlashda xatolik yuz berdi.");
+                  Alert.alert(t('common.error'), t('settings.update_error'));
                 } finally {
                   setUpdating(false);
                 }
               }}
               disabled={updating}
             >
-              {updating ? <ActivityIndicator size="small" color="#FFB800" /> : <Text style={styles.saveBtnText}>Saqlash</Text>}
+              {updating ? <ActivityIndicator size="small" color="#FFB800" /> : <Text style={styles.saveBtnText}>{t('profile.save')}</Text>}
             </TouchableOpacity>
           </View>
-          <Text style={styles.inputHint}>* To'ldirish va yechish so'rovlari uchun kerak</Text>
+          <Text style={styles.inputHint}>{t('profile.telegram_hint')}</Text>
         </View>
       )}
 
       {/* Referal Karta */}
       {isAuthenticated && user?.referral_code && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Do'stlarni taklif qil</Text>
+          <Text style={styles.sectionTitle}>{t('profile.invite_friends')}</Text>
           <View style={styles.referralCard}>
             <View style={styles.referralTop}>
               <View>
-                <Text style={styles.referralLabel}>Sizning taklif kodingiz</Text>
+                <Text style={styles.referralLabel}>{t('profile.your_referral_code')}</Text>
                 <Text style={styles.referralCode}>{user.referral_code}</Text>
               </View>
               <TouchableOpacity
                 style={styles.copyBtn}
                 onPress={() => {
                   Clipboard.setString(`${INVITE_BASE_URL}/${user.referral_code}`);
-                  Alert.alert('Nusxalandi!', 'Havola clipboard ga nusxalandi.');
+                  Alert.alert(t('common.success'), 'Havola clipboard ga nusxalandi.');
                 }}
               >
                 <Ionicons name="copy-outline" size={20} color="#FFB800" />
@@ -159,11 +159,11 @@ export default function ProfileScreen() {
             <View style={styles.referralBonusRow}>
               <View style={styles.referralBonusItem}>
                 <Ionicons name="person-add" size={16} color="#FFB800" />
-                <Text style={styles.referralBonusText}>Do'stingiz 10,000 so'm oladi</Text>
+                <Text style={styles.referralBonusText}>{t('profile.friend_gets_10k')}</Text>
               </View>
               <View style={styles.referralBonusItem}>
                 <Ionicons name="gift" size={16} color="#4CAF50" />
-                <Text style={[styles.referralBonusText, { color: '#4CAF50' }]}>Siz har safaridan 1-2% bonus</Text>
+                <Text style={[styles.referralBonusText, { color: '#4CAF50' }]}>{t('profile.you_get_cashback')}</Text>
               </View>
             </View>
 
@@ -181,7 +181,7 @@ export default function ProfileScreen() {
               }}
             >
               <Ionicons name="share-social" size={20} color="#000" />
-              <Text style={styles.shareBtnText}>Do'stlarga ulashish</Text>
+              <Text style={styles.shareBtnText}>{t('profile.share_with_friends')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -201,7 +201,7 @@ export default function ProfileScreen() {
                   setUser(resp.data);
                   router.replace('/(driver)/home');
                 } catch (e) {
-                  Alert.alert("Xato", "Haydovchi rejimiga o'tishda xatolik yuz berdi.");
+                  Alert.alert(t('common.error'), t('profile.switch_error'));
                 } finally {
                   setUpdating(false);
                 }
@@ -210,8 +210,8 @@ export default function ProfileScreen() {
             >
               <Ionicons name="car-sport" size={24} color="#FFB800" />
               <View>
-                <Text style={[styles.driverPromoTitle, { color: '#FFB800' }]}>Haydovchi rejimiga o'tish</Text>
-                <Text style={styles.driverPromoSub}>Taksi haydab daromad olish</Text>
+                <Text style={[styles.driverPromoTitle, { color: '#FFB800' }]}>{t('profile.switch_to_driver')}</Text>
+                <Text style={styles.driverPromoSub}>{t('profile.earn_driving_taxi')}</Text>
               </View>
               {updating ? <ActivityIndicator size="small" color="#FFB800" style={{ marginLeft: 'auto' }} /> : <Ionicons name="arrow-forward" size={20} color="#FFB800" style={{ marginLeft: 'auto' }} />}
             </TouchableOpacity>
