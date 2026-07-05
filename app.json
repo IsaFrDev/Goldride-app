@@ -94,7 +94,10 @@
     "extra": {
       "router": {},
       "telegramApiId": "29523743",
-      "telegramApiHash": "d7ae79c4f5ccae4de114695624ec3456"
+      "telegramApiHash": "d7ae79c4f5ccae4de114695624ec3456",
+      "eas": {
+        "projectId": "e5ede81d-cc5a-43fc-bcf0-4e756d90e3a7"
+      }
     }
   }
 }
