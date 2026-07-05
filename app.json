@@ -2,7 +2,6 @@
   "expo": {
     "name": "Goldride",
     "slug": "goldride-taxi",
-    "owner": "isa.dev",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -94,9 +93,6 @@
     ],
     "extra": {
       "router": {},
-      "eas": {
-        "projectId": "96a849f5-05a5-4e2e-91e3-017d3010fb2a"
-      },
       "telegramApiId": "29523743",
       "telegramApiHash": "d7ae79c4f5ccae4de114695624ec3456"
     }
