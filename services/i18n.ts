@@ -14,6 +14,8 @@ const translations: Record<string, Record<Language, string>> = {
   'common.success': { uz: 'Muvaffaqiyatli', ru: 'Успешно', en: 'Success' },
   'common.coming_soon': { uz: 'Tez kunda...', ru: 'Скоро...', en: 'Coming soon...' },
   'common.currency': { uz: "so'm", ru: 'сум', en: 'UZS' },
+  'common.bonus': { uz: 'Bonus', ru: 'Бонус', en: 'Bonus' },
+  'common.wallet': { uz: 'Hamyon', ru: 'Кошелек', en: 'Wallet' },
 
   // Welcome
   'welcome.title': { uz: 'Xush kelibsiz!', ru: 'Добро пожаловать!', en: 'Welcome!' },

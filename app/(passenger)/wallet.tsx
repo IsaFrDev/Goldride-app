@@ -22,7 +22,7 @@ type Transaction = {
 export default function PassengerWalletScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, language } = useAuthStore();
   const balanceAnim = useRef(new Animated.Value(0)).current;
   const cardAnim = useRef(new Animated.Value(0)).current;
 
@@ -102,7 +102,7 @@ export default function PassengerWalletScreen() {
       } else {
         // Fallback for demo if no transactions
         const fallbackTxns: Transaction[] = [
-            { id: '1', type: 'topup', amount: 50000, description: 'Simulated: Hisobni to\'ldirish', date: new Date().toISOString(), status: 'completed' },
+             { id: '1', type: 'topup', amount: 50000, description: `Simulated: ${t('wallet.card_topup')}`, date: new Date().toISOString(), status: 'completed' },
         ];
         setTransactions(fallbackTxns);
         setTotalSpent(0);

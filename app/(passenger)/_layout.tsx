@@ -51,7 +51,7 @@ export default function PassengerLayout() {
       <Tabs.Screen
         name="referral"
         options={{
-          title: 'Bonus',
+          title: t('common.bonus'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="gift" size={size} color={color} />
           ),

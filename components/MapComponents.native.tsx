@@ -1,5 +1,13 @@
 import React from 'react';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import { View } from 'react-native';
+import LeafletMap from './LeafletMap';
 
-export { Marker, Polyline, PROVIDER_GOOGLE };
+let MapView: any = LeafletMap;
+let Marker: any = () => null;
+let Polyline: any = () => null;
+let Circle: any = () => null;
+let MapCallout: any = ({ children }: any) => <View>{children}</View>;
+let PROVIDER_GOOGLE: any = 'google';
+
+export { Marker, Polyline, Circle, MapCallout, PROVIDER_GOOGLE };
 export default MapView;

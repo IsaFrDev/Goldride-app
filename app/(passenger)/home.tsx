@@ -117,7 +117,7 @@ const TASHKENT = {
 };
 
 export default function PassengerHomeScreen() {
-  const { user, isAuthenticated, setUser } = useAuthStore();
+  const { user, isAuthenticated, setUser, language } = useAuthStore();
   const ride = useRideStore();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -903,7 +903,7 @@ export default function PassengerHomeScreen() {
                   <View style={[styles.twoInputDotInner, { backgroundColor: '#000' }]} />
                 </View>
                 <Text style={[styles.twoInputPickupText, { color: destAddress ? '#FFF' : '#666' }]} numberOfLines={1}>
-                  {destAddress || 'Qayerga borasiz?'}
+                  {destAddress || t('home.where_to')}
                 </Text>
                 {!destAddress && (
                   <Ionicons name="search" size={18} color="#444" style={{ marginLeft: 'auto' }} />
@@ -929,14 +929,14 @@ export default function PassengerHomeScreen() {
 
         {uiStep === 'confirm_pickup' && (
           <View style={styles.confirmPanel}>
-            <Text style={styles.panelTitle}>Olib ketish joyi</Text>
+            <Text style={styles.panelTitle}>{t('home.pickup')}</Text>
             <Text style={styles.addressText} numberOfLines={2}>{pickupAddress}</Text>
             <TouchableOpacity 
                 style={[styles.primaryBtn, isMapMoving && { opacity: 0.6 }]} 
                 onPress={getRouteAndEstimate}
                 disabled={isMapMoving}
             >
-                <Text style={styles.primaryBtnText}>Tasdiqlash</Text>
+                <Text style={styles.primaryBtnText}>{t('common.confirm')}</Text>
             </TouchableOpacity>
             <View style={{ height: insets.bottom }} />
           </View>
