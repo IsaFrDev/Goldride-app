@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Language, setLanguage } from '../services/i18n';
+import { Language, setLanguage as setI18nLanguage } from '../services/i18n';
 
 interface User {
   id: number;
@@ -72,7 +72,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   setLanguage: (lang) => {
     set({ language: lang });
-    setLanguage(lang);
+    setI18nLanguage(lang);
     AsyncStorage.setItem('language', lang);
   },
 
@@ -115,7 +115,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       ]);
 
       if (lang) {
-        setLanguage(lang as Language);
+        setI18nLanguage(lang as Language);
         set({ language: lang as Language });
       }
 
