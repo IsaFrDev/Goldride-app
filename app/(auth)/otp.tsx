@@ -75,6 +75,9 @@ export default function OTPScreen() {
       Alert.alert("Muvaffaqiyatli", "Muvaffaqiyatli ro'yxatdan o'tdingiz!");
 
       if (status === 'partial') {
+          if (access && refresh && user) {
+              login(access, refresh, user);
+          }
           router.replace({
               pathname: '/(auth)/role-select',
               params: { 
