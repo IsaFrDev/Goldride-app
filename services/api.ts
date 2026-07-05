@@ -99,9 +99,14 @@ api.interceptors.response.use(
         } else {
           console.log('[API Refresh] No refresh token available');
         }
-      } catch (refreshError) {
-        console.log('[API Refresh] Token refresh failed, logging out...');
-        useAuthStore.getState().logout();
+      } catch (refreshError: any) {
+        const status = refreshError.response?.status;
+        if (status && (status === 400 || status === 401 || status === 403)) {
+          console.log('[API Refresh] Token explicitly invalid, logging out...');
+          useAuthStore.getState().logout();
+        } else {
+          console.log('[API Refresh] Network/Server error during refresh, keeping session:', refreshError.message);
+        }
       }
     }
 

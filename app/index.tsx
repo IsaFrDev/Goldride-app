@@ -11,11 +11,15 @@ export default function IndexScreen() {
   useEffect(() => {
     if (!navigationState?.key) return;
 
-    // If fully authenticated as an active driver
-    if (isAuthenticated && user?.role === 'driver' && user?.has_driver_profile) {
-      router.replace('/(driver)/home');
+    if (isAuthenticated) {
+      if (!user?.first_name) {
+        router.replace('/(auth)/role-select');
+      } else if (user?.role === 'driver' && user?.has_driver_profile) {
+        router.replace('/(driver)/home');
+      } else {
+        router.replace('/(passenger)/home');
+      }
     } else {
-      // Default to guest/passenger map experience
       router.replace('/(passenger)/home');
     }
   }, [isAuthenticated, user?.role, user?.has_driver_profile, navigationState?.key]);
