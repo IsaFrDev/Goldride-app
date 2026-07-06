@@ -4,5 +4,14 @@ interface GoldrideModuleType {
   helloKotlin(name: string): string;
 }
 
-const GoldrideModule = requireNativeModule<GoldrideModuleType>('GoldrideModule');
+let GoldrideModule: GoldrideModuleType;
+
+try {
+  GoldrideModule = requireNativeModule<GoldrideModuleType>('GoldrideModule');
+} catch (e) {
+  GoldrideModule = {
+    helloKotlin: (name: string) => `[Mock/Expo Go] Salom ${name}! (Kotlin module is mocked in Expo Go)`
+  };
+}
+
 export default GoldrideModule;
