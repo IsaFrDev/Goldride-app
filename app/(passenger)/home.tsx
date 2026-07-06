@@ -489,30 +489,29 @@ export default function PassengerHomeScreen() {
   const searchPlaces = async (query: string) => {
     setIsSearching(true);
     
-    // 1. Try Google Places Autocomplete API (using user's key)
+    // 1. Try Yandex Maps via SerpAPI (user provided key)
     try {
-      const apiKey = "AIzaSyB6V_8tf-pSO3nD6GggpAMI0LVPgmZrUk4";
+      const apiKey = "9d529bde53a19b2aef7e56a9ba592f1a7c006549f0eec1a1f6f08939b63d0bc2";
       const lat = location?.coords.latitude || TASHKENT.latitude;
       const lon = location?.coords.longitude || TASHKENT.longitude;
-      const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&location=${lat},${lon}&radius=30000&strictbounds=true&language=uz&key=${apiKey}`;
+      const url = `https://serpapi.com/search.json?engine=yandex_maps&q=${encodeURIComponent(query)}&ll=@${lat},${lon},14z&api_key=${apiKey}`;
       
       const resp = await fetch(url);
       const data = await resp.json();
       
-      if (data.predictions && data.predictions.length > 0) {
-        setSearchResults(data.predictions.map((item: any) => ({
-          placeId: item.place_id,
-          name: item.structured_formatting?.main_text || item.description,
-          address: item.structured_formatting?.secondary_text || item.description,
-          lat: 0,
-          lng: 0,
+      if (data.local_results && data.local_results.length > 0) {
+        setSearchResults(data.local_results.map((item: any) => ({
+          lat: item.gps_coordinates.latitude,
+          lng: item.gps_coordinates.longitude,
+          name: item.title,
+          address: item.address || 'Toshkent, O\'zbekiston',
           type: 'place'
         })));
         setIsSearching(false);
         return;
       }
     } catch (e) {
-      console.log('Google Places Autocomplete failed, trying Komoot Photon fallback:', e);
+      console.log('SerpAPI Yandex Maps Search failed, trying Komoot Photon fallback:', e);
     }
 
     // 2. Fallback to Komoot Photon API
@@ -566,53 +565,22 @@ export default function PassengerHomeScreen() {
     return 'location-outline';
   };
 
-  const onSelectPlace = async (place: any) => {
-    let lat = place.lat;
-    let lng = place.lng;
-    
-    if (place.placeId && (lat === 0 || lng === 0)) {
-      setLoading(true);
-      try {
-        const apiKey = "AIzaSyB6V_8tf-pSO3nD6GggpAMI0LVPgmZrUk4";
-        const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.placeId}&fields=geometry&key=${apiKey}`;
-        const resp = await fetch(url);
-        const data = await resp.json();
-        
-        if (data.result?.geometry?.location) {
-          lat = data.result.geometry.location.lat;
-          lng = data.result.geometry.location.lng;
-        } else {
-          Alert.alert("Xatolik", "Tanlangan joy koordinatalarini aniqlab bo'lmadi.");
-          setLoading(false);
-          return;
-        }
-      } catch (err) {
-        console.error("Google Place Details API Error:", err);
-        Alert.alert("Xatolik", "Google Places API orqali joylashuvni olishda xatolik yuz berdi.");
-        setLoading(false);
-        return;
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    const resolvedPlace = { ...place, lat, lng };
-
+  const onSelectPlace = (place: any) => {
     if (activeInput === 'dest') {
-        setDestAddress(resolvedPlace.name);
-        ride.setDestination({ lat: resolvedPlace.lat, lng: resolvedPlace.lng, address: resolvedPlace.address || resolvedPlace.name });
-        addSearch({ name: resolvedPlace.name, address: resolvedPlace.address || resolvedPlace.name, lat: resolvedPlace.lat, lng: resolvedPlace.lng });
+        setDestAddress(place.name);
+        ride.setDestination({ lat: place.lat, lng: place.lng, address: place.address || place.name });
+        addSearch({ name: place.name, address: place.address || place.name, lat: place.lat, lng: place.lng });
         
         setSearchResults([]);
         setShowSearch(false);
         
         // Skip the confirm_pickup step and immediately fetch route and price estimate
         setTimeout(() => {
-          getRouteAndEstimate({ lat: resolvedPlace.lat, lng: resolvedPlace.lng, address: resolvedPlace.address || resolvedPlace.name });
+          getRouteAndEstimate({ lat: place.lat, lng: place.lng, address: place.address || place.name });
         }, 100);
     } else {
         // Adding a stop
-        setStops([...stops, { ...resolvedPlace, id: Date.now() }]);
+        setStops([...stops, { ...place, id: Date.now() }]);
         setActiveInput('dest');
         setSearchResults([]);
     }
