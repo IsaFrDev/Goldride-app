@@ -190,7 +190,10 @@ const buildHtml = (lat: number, lng: number) => `
     var map = L.map('map', { zoomControl:false, attributionControl:false })
                .setView([${lat}, ${lng}], 14);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19 }).addTo(map);
+    L.tileLayer('https://vec0{s}.maps.yandex.net/tiles?l=map&x={x}&y={y}&z={z}&scale=1&lang=ru_RU', {
+      subdomains: ['1', '2', '3', '4'],
+      maxZoom: 19
+    }).addTo(map);
     window.map = map;
 
     // Storage

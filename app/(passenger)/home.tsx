@@ -479,6 +479,33 @@ export default function PassengerHomeScreen() {
 
   const searchPlaces = async (query: string) => {
     setIsSearching(true);
+    
+    // 1. Try Yandex Maps via SerpAPI (user provided key)
+    try {
+      const apiKey = "9d529bde53a19b2aef7e56a9ba592f1a7c006549f0eec1a1f6f08939b63d0bc2";
+      const lat = location?.coords.latitude || TASHKENT.latitude;
+      const lon = location?.coords.longitude || TASHKENT.longitude;
+      const url = `https://serpapi.com/search.json?engine=yandex_maps&q=${encodeURIComponent(query)}&ll=@${lat},${lon},14z&api_key=${apiKey}`;
+      
+      const resp = await fetch(url);
+      const data = await resp.json();
+      
+      if (data.local_results && data.local_results.length > 0) {
+        setSearchResults(data.local_results.map((item: any) => ({
+          lat: item.gps_coordinates.latitude,
+          lng: item.gps_coordinates.longitude,
+          name: item.title,
+          address: item.address || 'Toshkent, O\'zbekiston',
+          type: 'place'
+        })));
+        setIsSearching(false);
+        return;
+      }
+    } catch (e) {
+      console.log('SerpAPI Yandex Maps Search failed, trying Komoot Photon fallback:', e);
+    }
+
+    // 2. Fallback to Komoot Photon API
     try {
       const lat = location?.coords.latitude || TASHKENT.latitude;
       const lon = location?.coords.longitude || TASHKENT.longitude;
@@ -487,7 +514,6 @@ export default function PassengerHomeScreen() {
       const data = await resp.json();
       
       if (data.features) {
-        // Filter results to stay within Uzbekistan region to avoid noise from other countries
         const localized = data.features.filter((f: any) => {
           const c = f.geometry.coordinates;
           return c[1] > 37 && c[1] < 46 && c[0] > 55 && c[0] < 75;
@@ -513,7 +539,8 @@ export default function PassengerHomeScreen() {
         setSearchResults([]);
       }
     } catch (e) {
-      console.log('Search error:', e);
+      console.log('Photon search error:', e);
+      setSearchResults([]);
     } finally { 
       setIsSearching(false); 
     }
