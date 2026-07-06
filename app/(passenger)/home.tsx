@@ -985,7 +985,13 @@ export default function PassengerHomeScreen() {
                     <Text style={styles.etaInfo}>{estimate.estimated_duration_min} min • {estimate.distance_km} km</Text>
                     <Text style={styles.destName} numberOfLines={1}>{destAddress}</Text>
                 </View>
-                <TouchableOpacity onPress={() => setUiStep('idle')}>
+                <TouchableOpacity onPress={() => {
+                    setUiStep('idle');
+                    setRouteCoords([]);
+                    setEstimate(null);
+                    setDestAddress('');
+                    ride.setDestination(null);
+                }}>
                     <Ionicons name="close-circle" size={30} color="#DDD" />
                 </TouchableOpacity>
             </View>

@@ -100,31 +100,16 @@ export default function PassengerWalletScreen() {
         setTotalSpent(spent);
         setTotalTopup(Number(wallet.balance) + spent);
       } else {
-        // Fallback for demo if no transactions
-        const fallbackTxns: Transaction[] = [
-             { id: '1', type: 'topup', amount: 50000, description: `Simulated: ${t('wallet.card_topup')}`, date: new Date().toISOString(), status: 'completed' },
-        ];
-        setTransactions(fallbackTxns);
+        setTransactions([]);
         setTotalSpent(0);
-        setTotalTopup(50000);
+        setTotalTopup(0);
       }
     } catch (error) {
       console.log('Wallet error:', error);
-      setBalance(150000);
-      setTotalSpent(85000);
-      setTotalTopup(235000);
-      setTransactions([
-        {
-          id: 'd-1', type: 'topup', amount: 200000,
-          description: t('wallet.card_topup'),
-          date: new Date(Date.now() - 86400000 * 3).toISOString(), status: 'completed',
-        },
-        {
-          id: 'd-2', type: 'payment', amount: -35000,
-          description: 'Safar: Oybek → Chorsu',
-          date: new Date(Date.now() - 86400000).toISOString(), status: 'completed',
-        },
-      ]);
+      setBalance(0);
+      setTotalSpent(0);
+      setTotalTopup(0);
+      setTransactions([]);
     } finally {
       setLoading(false);
     }
