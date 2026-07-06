@@ -17,6 +17,7 @@ import { useRecentSearchesStore } from '../../stores/recentSearchesStore';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from '../../components/MapComponents';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { soundService } from '../../services/sound';
+import GoldrideModule from '../../modules/goldride-module';
 
 
 const { width, height } = Dimensions.get('window');
@@ -392,6 +393,14 @@ export default function PassengerHomeScreen() {
           });
       }
     });
+
+    // Kotlin Native Module Bridge Test
+    try {
+      const kotlinMsg = GoldrideModule.helloKotlin("Mijoz");
+      console.log("[KOTLIN BRIDGE SUCCESS]", kotlinMsg);
+    } catch (err) {
+      console.log("[KOTLIN BRIDGE FAIL / EXPO GO ONLY WARNING]", err);
+    }
 
     return () => {
       unsubStatus();
