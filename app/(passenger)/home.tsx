@@ -648,9 +648,12 @@ export default function PassengerHomeScreen() {
         ride.setEstimate(estResp.data);
         setUiStep('estimate');
       }
-    } catch (e) {
-        console.error('OSRM/Estimate Error:', e);
-        Alert.alert('Xatolik', 'Marshrutni hisoblashda xatolik yuz berdi. Internetingizni tekshiring.');
+    } catch (e: any) {
+        console.warn('OSRM/Estimate Error:', e.response?.data || e);
+        const errorMsg = e.response?.data?.detail 
+            ? e.response.data.detail 
+            : (e.response?.data ? JSON.stringify(e.response.data) : e.message);
+        Alert.alert('Xatolik', `Marshrutni hisoblashda xatolik yuz berdi: ${errorMsg}`);
     } finally { setLoading(false); }
   };
 
