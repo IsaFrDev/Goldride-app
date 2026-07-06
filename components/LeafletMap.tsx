@@ -374,13 +374,14 @@ const LeafletMap = forwardRef<LeafletMapRef, LeafletMapProps>(({
 
   const lat = initialRegion?.latitude  ?? 41.2995;
   const lng = initialRegion?.longitude ?? 69.2401;
+  const htmlSource = React.useMemo(() => ({ html: buildHtml(lat, lng) }), []);
 
   return (
     <View style={[styles.container, style]}>
       <WebView
         ref={webViewRef}
         originWhitelist={['*']}
-        source={{ html: buildHtml(lat, lng) }}
+        source={htmlSource}
         onMessage={(event) => {
           try {
             const data = JSON.parse(event.nativeEvent.data);
