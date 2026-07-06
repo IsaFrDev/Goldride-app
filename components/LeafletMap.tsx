@@ -187,7 +187,11 @@ const buildHtml = (lat: number, lng: number) => `
 <body>
   <div id="map"></div>
   <script>
-    var map = L.map('map', { zoomControl:false, attributionControl:false })
+    var map = L.map('map', { 
+                 zoomControl: false, 
+                 attributionControl: false,
+                 crs: L.CRS.EPSG3395
+               })
                .setView([${lat}, ${lng}], 14);
 
     L.tileLayer('https://core-renderer-tiles.maps.yandex.net/tiles?l=map&x={x}&y={y}&z={z}&scale=1&lang=ru_RU', {
