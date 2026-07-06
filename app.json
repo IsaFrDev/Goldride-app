@@ -21,7 +21,7 @@
       ],
       "buildNumber": "1.0.0",
       "config": {
-        "googleMapsApiKey": "AIzaSyDummyKey_For_Build_Stability"
+        "googleMapsApiKey": "AIzaSyB6V_8tf-pSO3nD6GggpAMI0LVPgmZrUk4"
       },
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Goldride sizga yaqin haydovchilarni ko'rsatish va buyurtma berishingiz uchun joylashuvingizdan foydalanadi.",
@@ -67,7 +67,7 @@
       ],
       "config": {
         "googleMaps": {
-          "apiKey": "AIzaSyDummyKey_For_Build_Stability"
+          "apiKey": "AIzaSyB6V_8tf-pSO3nD6GggpAMI0LVPgmZrUk4"
         }
       }
     },
