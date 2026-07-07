@@ -1,6 +1,7 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../stores/authStore';
+import { getDeviceId } from './device';
 
 // Production API URL — Railway backend
 const PRODUCTION_API_URL = 'https://goldride-backend-production.up.railway.app/api';
@@ -58,15 +59,19 @@ const api = axios.create({
 loadApiUrl();
 
 
-// Request interceptor — add JWT token
+// Request interceptor — add JWT token va qurilma ID (anti-fraud uchun)
 api.interceptors.request.use(
-  (config) => {
+  async (config) => {
     const { accessToken, isAuthenticated } = useAuthStore.getState();
     if (isAuthenticated && accessToken) {
       config.headers.Authorization = `Bearer ${accessToken}`;
-      // console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url} (Token attached)`);
-    } else {
-      // console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url} (No token attached)`);
+    }
+    // Har bir so'rovga barqaror qurilma ID'sini qo'shamiz (takroriy akkauntni aniqlash)
+    try {
+      const deviceId = await getDeviceId();
+      if (deviceId) config.headers['X-Device-Id'] = deviceId;
+    } catch {
+      // device id bo'lmasa ham so'rov ketaveradi
     }
     return config;
   },
