@@ -94,10 +94,12 @@ api.interceptors.response.use(
           const response = await axios.post(`${API_BASE_URL}/auth/token/refresh/`, {
             refresh: refreshToken,
           });
-          const { access } = response.data;
+          // Rotation yoqilgan bo'lsa backend YANGI refresh qaytaradi — o'shani saqlaymiz,
+          // aks holda eski (bloklanishi mumkin) refreshni saqlab qolib chiqib ketamiz.
+          const { access, refresh: newRefresh } = response.data;
           console.log('[API Refresh] Token refreshed successfully');
 
-          useAuthStore.getState().setTokens(access, refreshToken);
+          useAuthStore.getState().setTokens(access, newRefresh || refreshToken);
           originalRequest.headers.Authorization = `Bearer ${access}`;
 
           return api(originalRequest);
