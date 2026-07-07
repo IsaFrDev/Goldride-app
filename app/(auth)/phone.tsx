@@ -19,6 +19,8 @@ export default function PhoneScreen() {
   const [loading, setLoading] = useState(false);
   const [displayPhone, setDisplayPhone] = useState(''); // E.g. "90 123 45 67"
   const [rawPhone, setRawPhone] = useState(''); // E.g. "901234567"
+  const [email, setEmail] = useState('');
+  const [emailError, setEmailError] = useState('');
   const [ipAddress, setIpAddress] = useState<string>('Unknown');
   const [showRecaptcha, setShowRecaptcha] = useState(false);
   const [isRobotVerified, setIsRobotVerified] = useState(false);
@@ -60,11 +62,32 @@ export default function PhoneScreen() {
     setDisplayPhone(formatted);
   };
 
+  const isValidEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
+
   const handlePhoneAuth = async () => {
+    const emailTrim = email.trim().toLowerCase();
+    if (!isValidEmail(emailTrim)) {
+      setEmailError('To\'g\'ri email manzil kiriting.');
+      return;
+    }
     if (rawPhone.length !== 9) {
       Alert.alert('Xato', 'Iltimos, telefon raqamingizni to\'liq (9 ta raqam) kiriting.');
       return;
     }
+
+    // Email band emasligini oldindan tekshiramiz — band bo'lsa, davom etmaymiz
+    setLoading(true);
+    try {
+      const res = await authAPI.checkEmail(emailTrim);
+      if (res.data && res.data.available === false) {
+        setEmailError(res.data.detail || 'Bu email bilan allaqachon akkaunt ochilgan.');
+        setLoading(false);
+        return;
+      }
+    } catch {
+      // Tekshiruv ishlamasa ham davom etamiz — yakuniy tekshiruv verify-otp'da bo'ladi
+    }
+    setLoading(false);
 
     const fullPhone = `+998${rawPhone}`;
     await proceedSendOTP(fullPhone, 'telegram');
@@ -83,7 +106,8 @@ export default function PhoneScreen() {
         params: {
           identifier: phoneVal,
           phone: phoneVal,
-          type: 'phone'
+          type: 'phone',
+          email: email.trim().toLowerCase(),
         }
       });
     } catch (err: any) {
@@ -133,6 +157,24 @@ export default function PhoneScreen() {
             <Text style={styles.subtitle}>Telefon raqamingizni kiriting. Tasdiqlash kodi Telegram orqali yuboriladi.</Text>
           </View>
 
+          {/* Email kiritish inputi (telefon'dan oldin) */}
+          <View style={styles.inputContainer}>
+            <Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />
+            <TextInput
+              style={styles.textInput}
+              placeholder="Email manzilingiz"
+              placeholderTextColor="#666"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              value={email}
+              onChangeText={(t) => { setEmail(t); setEmailError(''); }}
+            />
+          </View>
+          {emailError ? (
+            <Text style={styles.fieldError}>{emailError}</Text>
+          ) : null}
+
           {/* Telefon kiritish inputi */}
           <View style={styles.inputContainer}>
             <Ionicons name="call-outline" size={20} color="#666" style={styles.inputIcon} />
@@ -149,9 +191,9 @@ export default function PhoneScreen() {
           </View>
 
           <TouchableOpacity
-            style={[styles.submitBtn, (rawPhone.length !== 9 || loading) && styles.buttonDisabled]}
+            style={[styles.submitBtn, (rawPhone.length !== 9 || !email.trim() || loading) && styles.buttonDisabled]}
             onPress={handlePhoneAuth}
-            disabled={rawPhone.length !== 9 || loading}
+            disabled={rawPhone.length !== 9 || !email.trim() || loading}
           >
             {loading ? (
               <ActivityIndicator color="#000" size="small" />
@@ -276,6 +318,13 @@ const styles = StyleSheet.create({
   },
   inputIcon: {
     marginRight: 12,
+  },
+  fieldError: {
+    color: '#FF5252',
+    fontSize: 13,
+    marginTop: -8,
+    marginBottom: 12,
+    marginLeft: 4,
   },
   countryCode: {
     color: '#FFF',

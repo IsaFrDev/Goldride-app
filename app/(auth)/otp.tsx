@@ -14,7 +14,7 @@ import { useAuthStore } from '../../stores/authStore';
 export default function OTPScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { identifier, phone, type } = useLocalSearchParams<{ identifier: string, phone?: string, type: 'phone' | 'email' }>();
+  const { identifier, phone, type, email } = useLocalSearchParams<{ identifier: string, phone?: string, type: 'phone' | 'email', email?: string }>();
   const { login, referralCode, onboardingRole, setOnboardingRole } = useAuthStore();
 
   const [loading, setLoading] = useState(false);
@@ -69,7 +69,7 @@ export default function OTPScreen() {
     setLoading(true);
     try {
       // Send mock OTP code "111111" as backend has bypass enabled
-      const response = await authAPI.verifyOTP(identifier!, "111111", type, phone, referralCode || undefined, ipAddress);
+      const response = await authAPI.verifyOTP(identifier!, "111111", type, phone, referralCode || undefined, ipAddress, email || undefined);
       const { access, refresh, user, is_new_user, status } = response.data;
 
       Alert.alert("Muvaffaqiyatli", "Muvaffaqiyatli ro'yxatdan o'tdingiz!");

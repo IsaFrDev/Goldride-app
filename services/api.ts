@@ -128,8 +128,11 @@ export const authAPI = {
   sendOTP: (phone: string, method: 'telegram' | 'recaptcha', recaptchaToken?: string, ipAddress?: string) =>
     api.post('/auth/send-otp/', { phone, method, recaptcha_token: recaptchaToken, ip_address: ipAddress }),
   
-  verifyOTP: (identifier: string, code: string, type: 'phone' | 'email', phone?: string, referralCode?: string, ipAddress?: string) =>
-    api.post('/auth/verify-otp/', { identifier, code, otp: code, type, phone, referral_code: referralCode, ip_address: ipAddress }),
+  verifyOTP: (identifier: string, code: string, type: 'phone' | 'email', phone?: string, referralCode?: string, ipAddress?: string, email?: string) =>
+    api.post('/auth/verify-otp/', { identifier, code, otp: code, type, phone, referral_code: referralCode, ip_address: ipAddress, email }),
+
+  // Emailni telefon kiritishdan OLDIN tekshirish (band-emasligini bilish uchun)
+  checkEmail: (email: string) => api.post('/auth/check-email/', { email }),
 
   register: (data: any) => api.post('/auth/register/', data),
   registerDriver: (data: FormData) =>
