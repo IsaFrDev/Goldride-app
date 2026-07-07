@@ -173,37 +173,39 @@ export default function PassengerHomeScreen() {
   // 1. Permissions & Initial Location
   useEffect(() => {
     (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Xatolik', 'Joylashuv ruxsati kerak');
-        return;
-      }
-
+      // Joylashuv — eng yaxshi holatda; ruxsat berilmasa yoki xato bo'lsa
+      // (masalan web'da yoki qurilma joylashuvi o'chiq bo'lsa) ilova qulamaydi,
+      // shunchaki joylashuvsiz davom etadi.
       try {
-        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        setLocation(loc);
-        
-        // Set basic coordinates first so it's not null
-        ride.setPickup({
-          lat: loc.coords.latitude,
-          lng: loc.coords.longitude,
-          address: 'Hozirgi joyingiz'
-        });
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          setLocation(loc);
 
-        // Try to get address
-        const address = await reverseGeocode(loc.coords.latitude, loc.coords.longitude);
-        if (address) {
-          setPickupAddress(address);
+          // Set basic coordinates first so it's not null
           ride.setPickup({
             lat: loc.coords.latitude,
             lng: loc.coords.longitude,
-            address: address
+            address: 'Hozirgi joyingiz'
           });
+
+          // Try to get address
+          const address = await reverseGeocode(loc.coords.latitude, loc.coords.longitude);
+          if (address) {
+            setPickupAddress(address);
+            ride.setPickup({
+              lat: loc.coords.latitude,
+              lng: loc.coords.longitude,
+              address: address
+            });
+          }
+        } else {
+          console.log('Joylashuv ruxsati berilmadi — joylashuvsiz davom etamiz');
         }
       } catch (error) {
-        console.log('Passenger location fetch failed:', error);
+        console.log('Joylashuv olinmadi:', error);
       }
-      
+
       // 0. Check for Active Ride and Agreement status on Mount
       if (isAuthenticated) {
         if (user && !user.has_agreed_to_terms) {
