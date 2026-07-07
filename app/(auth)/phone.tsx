@@ -75,20 +75,9 @@ export default function PhoneScreen() {
       return;
     }
 
-    // Email band emasligini oldindan tekshiramiz — band bo'lsa, davom etmaymiz
-    setLoading(true);
-    try {
-      const res = await authAPI.checkEmail(emailTrim);
-      if (res.data && res.data.available === false) {
-        setEmailError(res.data.detail || 'Bu email bilan allaqachon akkaunt ochilgan.');
-        setLoading(false);
-        return;
-      }
-    } catch {
-      // Tekshiruv ishlamasa ham davom etamiz — yakuniy tekshiruv verify-otp'da bo'ladi
-    }
-    setLoading(false);
-
+    // Eslatma: email band-emasligini bu yerda BLOKLAMAYMIZ. Chunki mavjud foydalanuvchi
+    // o'z emaili bilan telefoni orqali kira olishi kerak. Yakuniy takroriy-tekshiruv
+    // verify-otp'da bo'ladi (u faqat BOSHQA telefondagi bir xil emailni bloklaydi).
     const fullPhone = `+998${rawPhone}`;
     await proceedSendOTP(fullPhone, 'telegram');
   };

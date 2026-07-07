@@ -276,44 +276,49 @@ export default function DriverHomeScreen() {
 
     if (isOnline) {
       (async () => {
-        // Ensure background tracking is also running
-        const isTracking = await Location.hasStartedLocationUpdatesAsync(LOCATION_TRACKING);
-        if (!isTracking) {
-          const { status: bgStatus } = await Location.getBackgroundPermissionsAsync();
-          if (bgStatus === 'granted') {
-            await Location.startLocationUpdatesAsync(LOCATION_TRACKING, {
-              accuracy: Location.Accuracy.High,
-              timeInterval: 10000,
-              distanceInterval: 15,
-              foregroundService: {
-                notificationTitle: "Goldride Driver",
-                notificationBody: "Siz onlaynsiz. Buyurtmalar kutilmoqda...",
-                notificationColor: "#FFB800",
-              },
-            });
+        try {
+          // Ensure background tracking is also running
+          const isTracking = await Location.hasStartedLocationUpdatesAsync(LOCATION_TRACKING);
+          if (!isTracking) {
+            const { status: bgStatus } = await Location.getBackgroundPermissionsAsync();
+            if (bgStatus === 'granted') {
+              await Location.startLocationUpdatesAsync(LOCATION_TRACKING, {
+                accuracy: Location.Accuracy.High,
+                timeInterval: 10000,
+                distanceInterval: 15,
+                foregroundService: {
+                  notificationTitle: "Goldride Driver",
+                  notificationBody: "Siz onlaynsiz. Buyurtmalar kutilmoqda...",
+                  notificationColor: "#FFB800",
+                },
+              });
+            }
           }
-        }
 
-        locationSub = await Location.watchPositionAsync(
-          {
-            accuracy: Location.Accuracy.High,
-            timeInterval: 3000,
-            distanceInterval: 10,
-          },
-          (loc) => {
-            setLocation(loc);
-            // Send location to server via WebSocket for real-time
-            socketService.send('driver_location_update', { 
-              lat: loc.coords.latitude, 
-              lng: loc.coords.longitude 
-            });
-            // Also send via REST as fallback/DB persistence
-            authAPI.updateLocation(
-              loc.coords.latitude,
-              loc.coords.longitude
-            ).catch(() => {});
-          }
-        );
+          locationSub = await Location.watchPositionAsync(
+            {
+              accuracy: Location.Accuracy.High,
+              timeInterval: 3000,
+              distanceInterval: 10,
+            },
+            (loc) => {
+              setLocation(loc);
+              // Send location to server via WebSocket for real-time
+              socketService.send('driver_location_update', {
+                lat: loc.coords.latitude,
+                lng: loc.coords.longitude
+              });
+              // Also send via REST as fallback/DB persistence
+              authAPI.updateLocation(
+                loc.coords.latitude,
+                loc.coords.longitude
+              ).catch(() => {});
+            }
+          );
+        } catch (error) {
+          // Joylashuv ruxsati/xizmati mavjud emas (masalan web) — qulamaymiz
+          console.log('Haydovchi joylashuv kuzatuvi mavjud emas:', error);
+        }
       })();
 
       // Pulse animation
