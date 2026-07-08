@@ -15,14 +15,14 @@ class SoundService {
     }
   }
 
-  async playNewOrder() {
+  async playNewOrder(loop: boolean = true) {
     try {
       if (this.newOrderSound) {
         await this.newOrderSound.unloadAsync();
       }
       const { sound } = await Audio.Sound.createAsync(
         require('../assets/new_order.mp3'),
-        { volume: 1.0, isLooping: true }
+        { volume: 1.0, isLooping: loop }
       );
       this.newOrderSound = sound;
       await sound.playAsync();

@@ -203,8 +203,8 @@ export const ridesAPI = {
   cancelRide: (rideId: number) => api.post(`/rides/${rideId}/cancel/`),
   startRide: (rideId: number) => api.post(`/rides/${rideId}/start/`),
   completeRide: (rideId: number) => api.post(`/rides/${rideId}/complete/`),
-  rateRide: (rideId: number, rating: number, comment?: string) =>
-    api.post(`/rides/${rideId}/rate/`, { rating, comment }),
+  rateRide: (rideId: number, rating: number, comment?: string, targetUserId?: number) =>
+    api.post(`/rides/${rideId}/rate/`, { rating, comment, target_user_id: targetUserId }),
 
   getHistory: () => api.get('/rides/history/'),
   getActiveRides: () => api.get('/rides/driver/active/'),

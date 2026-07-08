@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Switch, Alert,
   Dimensions, Animated, ActivityIndicator, Image as RNImage,
-  Modal, AppState,
+  Modal, AppState, TextInput,
 } from 'react-native';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import Svg, { Rect, G, Path } from 'react-native-svg';
@@ -154,6 +154,22 @@ export default function DriverHomeScreen() {
   const [happyHour, setHappyHour] = useState<any>(null);
   const [showHHModal, setShowHHModal] = useState(false);
   const [completedRide, setCompletedRide] = useState<any>(null);
+  // Yo'lovchiga baho (yulduz) va fikr
+  const [paxRating, setPaxRating] = useState(5);
+  const [paxComment, setPaxComment] = useState('');
+  const [paxUserId, setPaxUserId] = useState<number | null>(null);
+
+  const finishCompletedRide = async () => {
+    if (completedRide?.id && paxUserId) {
+      try {
+        await ridesAPI.rateRide(completedRide.id, paxRating, paxComment.trim() || undefined, paxUserId);
+      } catch (e) { /* baho ixtiyoriy — xato bo'lsa ham davom etamiz */ }
+    }
+    setCompletedRide(null);
+    setPaxRating(5);
+    setPaxComment('');
+    setPaxUserId(null);
+  };
 
 
 
@@ -633,7 +649,10 @@ export default function DriverHomeScreen() {
   const completeRide = async () => {
     if (!activeRide) return;
     try {
+      // Baho uchun yo'lovchi user id'sini oldindan olamiz (activeRide tozalanishidan oldin)
+      const pax = activeRide?.passengers?.[0]?.user?.id ?? null;
       const resp = await ridesAPI.completeRide(activeRide.id);
+      setPaxUserId(pax);
       setActiveRide(null);
       setRouteCoords([]);
       setCompletedRide(resp.data);
@@ -867,11 +886,32 @@ export default function DriverHomeScreen() {
               </View>
             </View>
 
+            {/* Yo'lovchiga baho */}
+            <Text style={{ color: '#FFF', fontSize: 15, fontWeight: '700', marginBottom: 10 }}>Yo'lovchini baholang</Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
+              {[1, 2, 3, 4, 5].map((s) => (
+                <TouchableOpacity key={s} onPress={() => setPaxRating(s)}>
+                  <Ionicons name={s <= paxRating ? 'star' : 'star-outline'} size={34} color="#FFB800" />
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TextInput
+              style={{
+                width: '100%', backgroundColor: '#1E293B', borderRadius: 12, padding: 14,
+                color: '#FFF', fontSize: 14, marginBottom: 20, minHeight: 46,
+              }}
+              placeholder="Fikringiz (ixtiyoriy)"
+              placeholderTextColor="#64748B"
+              value={paxComment}
+              onChangeText={setPaxComment}
+              multiline
+            />
+
             <TouchableOpacity
               style={[styles.hhCloseBtn, { width: '100%' }]}
-              onPress={() => setCompletedRide(null)}
+              onPress={finishCompletedRide}
             >
-              <Text style={styles.hhCloseBtnText}>Davom etish</Text>
+              <Text style={styles.hhCloseBtnText}>Baholash va davom etish</Text>
             </TouchableOpacity>
           </View>
         </View>

@@ -135,6 +135,7 @@ export default function PassengerHomeScreen() {
   const [bonusPercent, setBonusPercent] = useState(0); // 0, 50, or 100
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [rating, setRating] = useState(5);
+  const [ratingComment, setRatingComment] = useState('');
   const [lastRideId, setLastRideId] = useState<number | null>(null);
   const [nearbyDrivers, setNearbyDrivers] = useState<any[]>([]);
   // Fetch only REAL drivers from the backend
@@ -337,11 +338,15 @@ export default function PassengerHomeScreen() {
           Alert.alert('Eslatma', 'Safar bekor qilindi yoki haydovchi topilmadi');
         } else if (data.status === 'completed') {
           setLastRideId(ride.rideId);
+          soundService.stopNewOrder();   // takrorlanuvchi ovozni to'xtatamiz
           ride.resetRide();
+          setEstimate(null);             // xaritadagi marshrutni tozalaymiz
+          setRouteCoords([]);
           setUiStep('idle');
           setShowRatingModal(true);
           // Alert.alert(t('common.success'), t('ride.completed'));
         } else if (data.status === 'arrived' || data.status === 'external_arrived') {
+          soundService.stopNewOrder();   // haydovchi yetib keldi — kutish ovozini to'xtatamiz
           soundService.playDriverArrived();
           if (data.status === 'external_arrived') {
             Alert.alert('Xabar', data.message || 'Haydovchi yetib keldi!');
@@ -370,7 +375,7 @@ export default function PassengerHomeScreen() {
           const r = data.ride;
           ride.setStatus(r.status);
           setUiStep('ride_active');
-          soundService.playNewOrder(); // Notify passenger that driver is found
+          soundService.playNewOrder(false); // Haydovchi topildi — BIR MARTA chalinadi (takrorlanmaydi)
           
           if (r.driver) {
               const d = r.driver;
@@ -734,6 +739,7 @@ export default function PassengerHomeScreen() {
     try {
       if (ride.rideId) await ridesAPI.cancelRide(ride.rideId);
     } catch (e) {}
+    soundService.stopNewOrder();   // ovozni to'xtatamiz
     ride.resetRide();
     setEstimate(null);
     setRouteCoords([]);
@@ -855,16 +861,29 @@ export default function PassengerHomeScreen() {
               ))}
             </View>
 
-            <TouchableOpacity 
+            <TextInput
+              style={{
+                width: '100%', backgroundColor: '#1E293B', borderRadius: 12, padding: 14,
+                color: '#FFF', fontSize: 14, marginTop: 16, minHeight: 46,
+              }}
+              placeholder="Fikringiz (ixtiyoriy)"
+              placeholderTextColor="#64748B"
+              value={ratingComment}
+              onChangeText={setRatingComment}
+              multiline
+            />
+
+            <TouchableOpacity
               style={styles.ratingSubmitBtn}
               onPress={async () => {
                 if (lastRideId) {
                   try {
-                    await ridesAPI.rateRide(lastRideId, rating);
+                    await ridesAPI.rateRide(lastRideId, rating, ratingComment.trim() || undefined);
                   } catch (e) {}
                 }
                 setShowRatingModal(false);
                 setRating(5);
+                setRatingComment('');
               }}
             >
               <Text style={styles.ratingSubmitText}>Baholash</Text>
