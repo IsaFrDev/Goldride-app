@@ -83,26 +83,20 @@ export default function PhoneScreen() {
   };
 
   const proceedSendOTP = async (phoneVal: string, method: 'telegram' | 'recaptcha', recaptchaToken?: string) => {
-    try {
-      setLoading(true);
-      await authAPI.sendOTP(phoneVal, method, recaptchaToken, ipAddress);
-      setLoading(false);
-      setShowRecaptcha(false);
-      
-      // Navigate to OTP Screen
-      router.push({
-        pathname: '/(auth)/otp',
-        params: {
-          identifier: phoneVal,
-          phone: phoneVal,
-          type: 'phone',
-          email: email.trim().toLowerCase(),
-        }
-      });
-    } catch (err: any) {
-      Alert.alert('Xato', err?.response?.data?.detail || 'OTP yuborishda xatolik yuz berdi.');
-      setLoading(false);
-    }
+    // Server tomonida OTP bypass qilinadi (ilovada 4-xonali captcha ishlatiladi),
+    // shuning uchun send-otp CHAQIRILMAYDI — u faqat 60 soniyalik cooldown xatosini
+    // keltirardi. To'g'ridan-to'g'ri captcha ekraniga o'tamiz.
+    setLoading(false);
+    setShowRecaptcha(false);
+    router.push({
+      pathname: '/(auth)/otp',
+      params: {
+        identifier: phoneVal,
+        phone: phoneVal,
+        type: 'phone',
+        email: email.trim().toLowerCase(),
+      }
+    });
   };
 
   const handleRecaptchaVerify = async () => {
