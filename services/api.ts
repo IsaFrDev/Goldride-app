@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../stores/authStore';
 import { getDeviceId } from './device';
@@ -110,6 +111,13 @@ api.interceptors.response.use(
         const status = refreshError.response?.status;
         if (status && (status === 400 || status === 401 || status === 403)) {
           console.log('[API Refresh] Token explicitly invalid, logging out...');
+          // Akkaunt o'chirilgan bo'lsa — foydalanuvchiga xabar beramiz
+          if (refreshError.response?.data?.code === 'account_deleted') {
+            Alert.alert(
+              'Akkaunt o\'chirilgan',
+              'Sizning akkauntingiz o\'chirilgan. Iltimos, qaytadan ro\'yxatdan o\'ting.'
+            );
+          }
           useAuthStore.getState().logout();
         } else {
           console.log('[API Refresh] Network/Server error during refresh, keeping session:', refreshError.message);
