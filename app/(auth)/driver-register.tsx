@@ -213,7 +213,23 @@ export default function DriverRegisterScreen() {
       );
     } catch (error: any) {
       console.error('Registration error:', error.response?.data || error);
-      Alert.alert("Xatolik", "Ro'yxatdan o'tishda xatolik yuz berdi. Iltimos barcha rasmlar yuklanganini va internetingizni tekshiring.");
+      // Serverdan kelgan aniq xabarni ko'rsatamiz (umumiy matn o'rniga)
+      const data = error.response?.data;
+      let msg = "Ro'yxatdan o'tishda xatolik yuz berdi. Iltimos barcha rasmlar yuklanganini va internetingizni tekshiring.";
+      if (data) {
+        if (typeof data === 'string') {
+          msg = data;
+        } else if (data.detail) {
+          msg = data.detail;
+        } else if (typeof data === 'object') {
+          const first = Object.entries(data)[0];
+          if (first) {
+            const val = Array.isArray(first[1]) ? first[1][0] : first[1];
+            msg = `${first[0]}: ${val}`;
+          }
+        }
+      }
+      Alert.alert("Xatolik", msg);
     } finally {
       setLoading(false);
     }
